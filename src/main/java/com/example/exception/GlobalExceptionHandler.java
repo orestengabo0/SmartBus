@@ -1,6 +1,5 @@
 package com.example.exception;
 
-import org.apache.coyote.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -24,8 +23,8 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(err, HttpStatus.CONFLICT);
     }
 
-    @ExceptionHandler(PasswordException.class)
-    public ResponseEntity<ErrorResponse> handlePasswordException(PasswordException ex) {
+    @ExceptionHandler(CredentialsException.class)
+    public ResponseEntity<ErrorResponse> handlePasswordException(CredentialsException ex) {
         ErrorResponse err = new ErrorResponse("INVALID_PASSWORD", ex.getMessage());
         return new ResponseEntity<>(err, HttpStatus.BAD_REQUEST);
     }
@@ -48,6 +47,12 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(err, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(TokenException.class)
+    public ResponseEntity<ErrorResponse> handleTokenException(TokenException ex) {
+        ErrorResponse err = new ErrorResponse("INVALID_TOKEN", ex.getMessage());
+        return new ResponseEntity<>(err, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -62,5 +67,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
         ErrorResponse error = new ErrorResponse("SERVER_ERROR", "An unexpected error occurred");
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<ErrorResponse> handleSecurityException(SecurityException ex) {
+        ErrorResponse err = new ErrorResponse("SECURITY_ERROR", ex.getMessage());
+        return new ResponseEntity<>(err, HttpStatus.UNAUTHORIZED);
     }
 }

@@ -1,17 +1,26 @@
 package com.example.service;
 
+import com.example.exception.EmailAlreadyRegisteredException;
+import com.example.exception.CredentialsException;
+import com.example.exception.ResourceNotFoundException;
+import com.example.exception.TokenException;
+import com.example.model.RefreshToken;
 import com.example.model.User;
 import com.example.model.Role;
+import com.example.repository.RefreshTokenRepository;
 import com.example.repository.UserRepository;
 import com.example.dto.RegisterRequest;
 import com.example.dto.LoginRequest;
 import com.example.dto.AuthResponse;
 import com.example.smartbus.JwtUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import java.util.Optional;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -21,53 +30,75 @@ public class AuthService {
     private PasswordEncoder passwordEncoder;
     @Autowired
     private JwtUtil jwtUtil;
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("Email already registered");
+    public AuthResponse register(RegisterRequest registerRequest, HttpServletRequest req) {
+        if (userRepository.findByEmail(registerRequest.getEmail()).isPresent()) {
+            throw new EmailAlreadyRegisteredException("Email already registered");
         }
         User user = new User();
-        user.setFullName(request.getFullName());
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setPhone(request.getPhone());
+        user.setFullName(registerRequest.getFullName());
+        user.setEmail(registerRequest.getEmail());
+        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+        user.setPhone(registerRequest.getPhone());
         user.setRole(Role.USER);
         user.setCreatedAt(java.time.LocalDateTime.now());
         String accessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getRole().name());
-        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
-        user.setRefreshToken(refreshToken);
+        RefreshToken refreshToken = createRefreshToken(user,req);
         userRepository.save(user);
-        return new AuthResponse(accessToken, refreshToken, user.getRole().name());
+        return new AuthResponse(accessToken, refreshToken.getToken(), user.getRole().name());
     }
 
-    public AuthResponse login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request, HttpServletRequest req) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
+                .orElseThrow(() -> new CredentialsException("Invalid credentials"));
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
+            throw new CredentialsException("Invalid credentials");
         }
         String accessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getRole().name());
-        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
-        user.setRefreshToken(refreshToken);
+        RefreshToken refreshTokenEntity = createRefreshToken(user, req);
         userRepository.save(user);
-        return new AuthResponse(accessToken, refreshToken, user.getRole().name());
+        return new AuthResponse(accessToken, refreshTokenEntity.getToken(), user.getRole().name());
     }
 
-    public AuthResponse refreshToken(String refreshToken) {
-        if (!jwtUtil.validateToken(refreshToken)) {
-            throw new RuntimeException("Invalid refresh token");
+    public RefreshToken createRefreshToken(User user, HttpServletRequest request) {
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setUser(user);
+        refreshToken.setToken(UUID.randomUUID().toString());
+        refreshToken.setExpiryDate(LocalDateTime.now().plusDays(7));
+        refreshToken.setIssuedIp(request.getRemoteAddr());
+        refreshToken.setDeviceInfo(request.getHeader("User-Agent"));
+        return refreshTokenRepository.save(refreshToken);
+    }
+
+    @Transactional
+    public AuthResponse refreshToken(String token, HttpServletRequest req) {
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(token);
+        if (refreshToken == null)
+            throw new ResourceNotFoundException("Refresh token not found");
+
+        if (refreshToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            refreshTokenRepository.delete(refreshToken);
+            throw new TokenException("Refresh token expired");
         }
-        String email = jwtUtil.getEmailFromToken(refreshToken);
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        if (!refreshToken.equals(user.getRefreshToken())) {
-            throw new RuntimeException("Refresh token mismatch");
+
+        String currentIp = req.getRemoteAddr();
+        String currentDevice = req.getHeader("User-Agent");
+        if (!refreshToken.getIssuedIp().equals(currentIp) ||
+                !refreshToken.getDeviceInfo().equals(currentDevice)) {
+            // Potential token theft - consider logging this security event
+            throw new SecurityException("Potential refresh token theft detected");
         }
+        // Generate new access token
+        User user = refreshToken.getUser();
         String accessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getRole().name());
-        String newRefreshToken = jwtUtil.generateRefreshToken(user.getEmail());
-        user.setRefreshToken(newRefreshToken);
-        userRepository.save(user);
-        return new AuthResponse(accessToken, newRefreshToken, user.getRole().name());
+
+        //Issue new token and invalidate old one
+        refreshTokenRepository.delete(refreshToken);
+        RefreshToken refreshTokenEntity = createRefreshToken(user, req);
+
+        return new AuthResponse(accessToken, refreshTokenEntity.getToken(), user.getRole().name());
     }
 }

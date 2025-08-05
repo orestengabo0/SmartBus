@@ -1,7 +1,7 @@
 package com.example.service;
 
 import com.example.exception.EmailAlreadyRegisteredException;
-import com.example.exception.PasswordException;
+import com.example.exception.CredentialsException;
 import com.example.exception.ResourceNotFoundException;
 import com.example.model.User;
 import com.example.repository.UserRepository;
@@ -44,7 +44,7 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
-            throw new PasswordException("Old password is incorrect");
+            throw new CredentialsException("Old password is incorrect");
         }
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);

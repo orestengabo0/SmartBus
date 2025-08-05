@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: SmartBus
+  datasource:
+    url: jdbc:postgresql://localhost:5432/SmartBus
+    username: postgres
+    password: 270811OLC0802023
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+app:
+  jwt:
+    secret: b2d5eW8ybzdoZWdvbHV0OWh2YnJocXp6d2xua2tjejFsaDI5aXhldmkzZ3JkbTg0Zmx5dG5weWhoeXB1N3diN3FsYjZmeTZ0b2JtYnI2dTRydzF3Ym9ldjBvdm1nN2U0NmpsZjNmcG1lZHprNmswOWxxenR5ajVtZHdqZXNtNTQ=
+    access: 3600000
+    refresh: 604800000

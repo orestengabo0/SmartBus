@@ -1,20 +1,34 @@
 package com.example.smartbus;
 
 import io.jsonwebtoken.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.util.Date;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.JwtException;
 import java.security.Key;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+
 import javax.crypto.SecretKey;
 
 @Component
 public class JwtUtil {
-    private final String jwtSecret = "your_jwt_secret_key_your_jwt_secret_key"; // must be at least 32 chars for HS256
-    private final SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
-    private final long jwtExpirationMs = 3600000; // 1 hour
-    private final long refreshExpirationMs = 604800000; // 7 days
+    @Value("${app.jwt.secret}")
+    private String jwtSecret;
+
+    @Value("${app.jwt.access}")
+    private long jwtExpirationMs;
+
+    @Value("${app.jwt.refresh}")
+    private long refreshExpirationMs;
+
+    private SecretKey key;
+
+    @PostConstruct
+    public void init() {
+        key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+    }
 
     public String generateAccessToken(String email, String role) {
         return Jwts.builder()
@@ -22,15 +36,6 @@ public class JwtUtil {
                 .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
-                .signWith(key, SignatureAlgorithm.HS256)
-                .compact();
-    }
-
-    public String generateRefreshToken(String email) {
-        return Jwts.builder()
-                .subject(email)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + refreshExpirationMs))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
