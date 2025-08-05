@@ -1,5 +1,8 @@
 package com.example.service;
 
+import com.example.exception.EmailAlreadyRegisteredException;
+import com.example.exception.PasswordException;
+import com.example.exception.ResourceNotFoundException;
 import com.example.model.User;
 import com.example.repository.UserRepository;
 import com.example.dto.ProfileResponse;
@@ -11,24 +14,26 @@ import com.example.model.Role;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional
 public class UserService {
     @Autowired
     private UserRepository userRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Transactional(readOnly = true)
     public ProfileResponse getProfile(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return toProfileResponse(user);
     }
 
     public ProfileResponse updateProfile(String email, UpdateProfileRequest request) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         user.setFullName(request.getFullName());
         user.setPhone(request.getPhone());
         userRepository.save(user);
@@ -37,41 +42,50 @@ public class UserService {
 
     public void changePassword(String email, ChangePasswordRequest request) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
-            throw new RuntimeException("Old password is incorrect");
+            throw new PasswordException("Old password is incorrect");
         }
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
     }
 
-    public ProfileResponse createOperator(CreateOperatorRequest request) {
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("Email already registered");
+    private User createUserFromRequest(String fullName, String email,
+                                       String password, String phone, Role role) {
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new EmailAlreadyRegisteredException("Email already registered");
         }
+
         User user = new User();
-        user.setFullName(request.getFullName());
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setPhone(request.getPhone());
-        user.setRole(Role.OPERATOR);
+        user.setFullName(fullName);
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(password));
+        user.setPhone(phone);
+        user.setRole(role);
         user.setCreatedAt(java.time.LocalDateTime.now());
-        userRepository.save(user);
+
+        return userRepository.save(user);
+    }
+
+    public ProfileResponse createOperator(CreateOperatorRequest request) {
+        User user = createUserFromRequest(
+                request.getFullName(),
+                request.getEmail(),
+                request.getPassword(),
+                request.getPhone(),
+                Role.OPERATOR
+        );
         return toProfileResponse(user);
     }
 
     public ProfileResponse createAdmin(CreateAdminRequest request) {
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("Email already registered");
-        }
-        User user = new User();
-        user.setFullName(request.getFullName());
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setPhone(request.getPhone());
-        user.setRole(Role.ADMIN);
-        user.setCreatedAt(java.time.LocalDateTime.now());
-        userRepository.save(user);
+        User user = createUserFromRequest(
+                request.getFullName(),
+                request.getEmail(),
+                request.getPassword(),
+                request.getPhone(),
+                Role.ADMIN
+        );
         return toProfileResponse(user);
     }
 
