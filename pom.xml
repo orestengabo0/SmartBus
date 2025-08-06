@@ -90,11 +90,11 @@
             <artifactId>jjwt-api</artifactId>
             <version>0.12.6</version>
         </dependency>
-        <dependency>
+        <!-- <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-ui</artifactId>
             <version>1.8.0</version>
-        </dependency>
+        </dependency> -->
     </dependencies>
 
     <build>
