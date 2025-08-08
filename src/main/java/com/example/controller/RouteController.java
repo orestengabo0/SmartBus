@@ -1,6 +1,7 @@
 package com.example.controller;
 
-import com.example.dto.RouteDTO;
+import com.example.dto.requests.RouteRequest;
+import com.example.dto.responses.RouteResponse;
 import com.example.model.Route;
 import com.example.service.RouteService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,7 +38,7 @@ public class RouteController {
             @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required")
     })
     @GetMapping
-    public ResponseEntity<List<Route>> getAllRoutes() {
+    public ResponseEntity<List<RouteResponse>> getAllRoutes() {
         return ResponseEntity.ok(routeService.getAllRoutes());
     }
 
@@ -61,7 +62,7 @@ public class RouteController {
             @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required")
     })
     @GetMapping("/search")
-    public ResponseEntity<List<Route>> searchRoutes(
+    public ResponseEntity<List<RouteResponse>> searchRoutes(
             @Parameter(description = "Origin city/location") @RequestParam(required = false) String origin,
             @Parameter(description = "Destination city/location") @RequestParam(required = false) String destination) {
 
@@ -86,9 +87,8 @@ public class RouteController {
     })
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<Route> createRoute(@Valid @RequestBody RouteDTO routeDTO) {
-        Route route = routeService.createRoute(routeDTO);
-        return ResponseEntity.status(HttpStatus.CREATED).body(route);
+    public ResponseEntity<RouteResponse> createRoute(@Valid @RequestBody RouteRequest routeRequest) {
+        return ResponseEntity.ok(routeService.createRoute(routeRequest));
     }
 
     @Operation(summary = "Update a route",
@@ -102,11 +102,10 @@ public class RouteController {
     })
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<Route> updateRoute(
+    public ResponseEntity<RouteResponse> updateRoute(
             @Parameter(description = "ID of the route to update") @PathVariable Long id,
-            @Valid @RequestBody RouteDTO routeDTO) {
-        Route route = routeService.updateRoute(id, routeDTO);
-        return ResponseEntity.ok(route);
+            @Valid @RequestBody RouteRequest routeRequest) {
+        return ResponseEntity.ok(routeService.updateRoute(id, routeRequest));
     }
 
     @Operation(summary = "Delete a route",

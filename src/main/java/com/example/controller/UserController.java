@@ -1,8 +1,8 @@
 package com.example.controller;
 
 import com.example.service.UserService;
-import com.example.dto.CreateOperatorRequest;
-import com.example.dto.CreateAdminRequest;
+import com.example.dto.requests.CreateOperatorRequest;
+import com.example.dto.requests.CreateAdminRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -13,9 +13,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
-import com.example.dto.ProfileResponse;
-import com.example.dto.UpdateProfileRequest;
-import com.example.dto.ChangePasswordRequest;
+import com.example.dto.responses.ProfileResponse;
+import com.example.dto.requests.UpdateProfileRequest;
+import com.example.dto.requests.ChangePasswordRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.http.ResponseEntity;
@@ -39,7 +39,7 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = "Forbidden - admin access required")
     })
     @PostMapping("/create-operator")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ProfileResponse> createOperator(@Valid @RequestBody CreateOperatorRequest request) {
         return ResponseEntity.ok(userService.createOperator(request));
     }

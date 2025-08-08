@@ -1,6 +1,7 @@
 package com.example.service;
 
-import com.example.dto.BusParkDTO;
+import com.example.dto.requests.BusParkRequest;
+import com.example.dto.responses.BusParkResponse;
 import com.example.exception.ResourceAlreadyExistsException;
 import com.example.exception.ResourceNotFoundException;
 import com.example.exception.UnauthorizedException;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -22,9 +24,9 @@ public class BusParkService {
     private final BusParkRepository busParkRepository;
     private final CurrentUserService currentUserService;
 
-    public BusPark createBusPark(BusParkDTO busParkDTO) {
+    public BusParkResponse createBusPark(BusParkRequest busParkDTO) {
         User currentUser = currentUserService.getCurrentUser();
-        if(currentUser.getRole() != Role.ADMIN || currentUser.getRole() != Role.SUPER_ADMIN) {
+        if(currentUser.getRole() != Role.ADMIN && currentUser.getRole() != Role.SUPER_ADMIN) {
             throw new UnauthorizedException("Access denied.");
         }
         if (busParkRepository.existsByNameAndLocation(busParkDTO.getName(), busParkDTO.getLocation())) {
@@ -40,30 +42,38 @@ public class BusParkService {
         busPark.setLongitude(busParkDTO.getLongitude());
         busPark.setCreatedAt(LocalDateTime.now());
 
-        return busParkRepository.save(busPark);
+        busParkRepository.save(busPark);
+        return convertToDTO(busPark);
     }
 
-    public List<BusPark> getAllBusParks() {
-        return busParkRepository.findByActive((true));
+    public List<BusParkResponse> getAllBusParks() {
+        List<BusPark> busParks = busParkRepository.findByActive(true);
+        return busParks.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
-    public BusPark getBusParkById(Long id) {
-        return busParkRepository.findById(id)
+    public BusParkResponse getBusParkById(Long id) {
+        BusPark busPark = busParkRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bus park not found with id: " + id));
+        return convertToDTO(busPark);
     }
 
-    public List<BusPark> getBusParksByLocation(String location) {
-        return busParkRepository.findByLocation(location);
+    public List<BusParkResponse> getBusParksByLocation(String location) {
+        List<BusPark> busParks = busParkRepository.findByLocation(location);
+        return busParks.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
-    public BusPark updateBusPark(Long id, BusParkDTO busParkDTO) {
+    public BusParkResponse updateBusPark(Long id, BusParkRequest busParkDTO) {
         // Check permissions
         User currentUser = currentUserService.getCurrentUser();
         if (currentUser.getRole() != Role.ADMIN && currentUser.getRole() != Role.SUPER_ADMIN) {
             throw new UnauthorizedException("Only admins can update bus parks");
         }
 
-        BusPark busPark = getBusParkById(id);
+        BusPark busPark = busParkRepository.getBusParkById(id);
 
         busPark.setName(busParkDTO.getName());
         busPark.setLocation(busParkDTO.getLocation());
@@ -72,7 +82,8 @@ public class BusParkService {
         busPark.setLatitude(busParkDTO.getLatitude());
         busPark.setLongitude(busParkDTO.getLongitude());
 
-        return busParkRepository.save(busPark);
+        busParkRepository.save(busPark);
+        return convertToDTO(busPark);
     }
 
     public void deleteBusPark(Long id) {
@@ -82,8 +93,30 @@ public class BusParkService {
             throw new UnauthorizedException("Only admins can delete bus parks");
         }
 
-        BusPark busPark = getBusParkById(id);
+        BusPark busPark = busParkRepository.getBusParkById(id);
         busPark.setActive(false); // Soft delete
         busParkRepository.save(busPark);
+    }
+
+    private BusParkResponse convertToDTO(BusPark busPark) {
+        BusParkResponse dto = new BusParkResponse();
+
+        dto.setId(busPark.getId());
+        dto.setName(busPark.getName());
+        dto.setLocation(busPark.getLocation());
+        dto.setAddress(busPark.getAddress());
+        dto.setContactNumber(busPark.getContactNumber());
+
+        // Set counts instead of collections
+        dto.setBusCount(busPark.getBuses() != null ? busPark.getBuses().size() : 0);
+        dto.setDepartureTripCount(busPark.getDepartureTrips() != null ? busPark.getDepartureTrips().size() : 0);
+        dto.setArrivalTripCount(busPark.getArrivalTrips() != null ? busPark.getArrivalTrips().size() : 0);
+
+        dto.setLatitude(busPark.getLatitude());
+        dto.setLongitude(busPark.getLongitude());
+        dto.setActive(busPark.isActive());
+        dto.setCreatedAt(busPark.getCreatedAt());
+
+        return dto;
     }
 }

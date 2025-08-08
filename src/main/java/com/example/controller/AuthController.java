@@ -1,10 +1,10 @@
 package com.example.controller;
 
-import com.example.dto.RefreshTokenRequest;
+import com.example.dto.requests.RefreshTokenRequest;
 import com.example.service.AuthService;
-import com.example.dto.RegisterRequest;
-import com.example.dto.LoginRequest;
-import com.example.dto.AuthResponse;
+import com.example.dto.requests.RegisterRequest;
+import com.example.dto.requests.LoginRequest;
+import com.example.dto.responses.AuthResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;

@@ -1,7 +1,7 @@
 package com.example.controller;
 
-import com.example.dto.BusParkDTO;
-import com.example.model.BusPark;
+import com.example.dto.requests.BusParkRequest;
+import com.example.dto.responses.BusParkResponse;
 import com.example.service.BusParkService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -32,7 +31,7 @@ public class BusParkController {
             @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required")
     })
     @GetMapping
-    public ResponseEntity<List<BusPark>> getAllBusParks() {
+    public ResponseEntity<List<BusParkResponse>> getAllBusParks() {
         return ResponseEntity.ok(busParkService.getAllBusParks());
     }
 
@@ -44,7 +43,7 @@ public class BusParkController {
             @ApiResponse(responseCode = "404", description = "Bus park not found")
     })
     @GetMapping("/{id}")
-    public ResponseEntity<BusPark> getBusParkById(@PathVariable Long id) {
+    public ResponseEntity<BusParkResponse> getBusParkById(@PathVariable Long id) {
         return ResponseEntity.ok(busParkService.getBusParkById(id));
     }
 
@@ -55,7 +54,7 @@ public class BusParkController {
             @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required")
     })
     @GetMapping("/location/{location}")
-    public ResponseEntity<List<BusPark>> getBusParksByLocation(@PathVariable String location) {
+    public ResponseEntity<List<BusParkResponse>> getBusParksByLocation(@PathVariable String location) {
         return ResponseEntity.ok(busParkService.getBusParksByLocation(location));
     }
 
@@ -69,9 +68,8 @@ public class BusParkController {
     })
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<BusPark> createBusPark(@Valid @RequestBody BusParkDTO busParkDTO) {
-        BusPark busPark = busParkService.createBusPark(busParkDTO);
-        return ResponseEntity.status(HttpStatus.CREATED).body(busPark);
+    public ResponseEntity<BusParkResponse> createBusPark(@Valid @RequestBody BusParkRequest busParkDTO) {
+        return ResponseEntity.ok(busParkService.createBusPark(busParkDTO));
     }
 
     @Operation(summary = "Update a bus park",
@@ -85,11 +83,10 @@ public class BusParkController {
     })
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<BusPark> updateBusPark(
+    public ResponseEntity<BusParkResponse> updateBusPark(
             @PathVariable Long id,
-            @Valid @RequestBody BusParkDTO busParkDTO) {
-        BusPark busPark = busParkService.updateBusPark(id, busParkDTO);
-        return ResponseEntity.ok(busPark);
+            @Valid @RequestBody BusParkRequest busParkDTO) {
+        return ResponseEntity.ok(busParkService.updateBusPark(id, busParkDTO));
     }
 
     @Operation(summary = "Delete a bus park",

@@ -1,7 +1,7 @@
 package com.example.controller;
 
-import com.example.dto.BusDTO;
-import com.example.model.Bus;
+import com.example.dto.requests.BusRequest;
+import com.example.dto.responses.BusResponse;
 import com.example.service.BusService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -36,7 +35,7 @@ public class BusController {
             @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required")
     })
     @GetMapping
-    public ResponseEntity<List<Bus>> getAllBuses() {
+    public ResponseEntity<List<BusResponse>> getAllBuses() {
         return ResponseEntity.ok(busService.getAllBuses());
     }
 
@@ -49,7 +48,7 @@ public class BusController {
             @ApiResponse(responseCode = "404", description = "Bus not found")
     })
     @GetMapping("/{id}")
-    public ResponseEntity<Bus> getBusById(@PathVariable Long id) {
+    public ResponseEntity<BusResponse> getBusById(@PathVariable Long id) {
         return ResponseEntity.ok(busService.getBusById(id));
     }
 
@@ -63,9 +62,8 @@ public class BusController {
     })
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'OPERATOR')")
-    public ResponseEntity<Bus> createBus(@Valid @RequestBody BusDTO busDTO) {
-        Bus bus = busService.createBus(busDTO);
-        return ResponseEntity.status(HttpStatus.CREATED).body(bus);
+    public ResponseEntity<BusResponse> createBus(@Valid @RequestBody BusRequest busRequest) {
+        return ResponseEntity.ok(busService.createBus(busRequest));
     }
 
     @Operation(summary = "Update a bus",
@@ -79,11 +77,10 @@ public class BusController {
     })
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'OPERATOR')")
-    public ResponseEntity<Bus> updateBus(
+    public ResponseEntity<BusResponse> updateBus(
             @PathVariable Long id,
-            @Valid @RequestBody BusDTO busDTO) {
-        Bus bus = busService.updateBus(id, busDTO);
-        return ResponseEntity.ok(bus);
+            @Valid @RequestBody BusRequest busRequest) {
+        return ResponseEntity.ok(busService.updateBus(id, busRequest));
     }
 
     @Operation(summary = "Delete a bus",

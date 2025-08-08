@@ -1,11 +1,11 @@
-package com.example.dto;
+package com.example.dto.requests;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-public class RouteDTO {
+public class RouteRequest {
     @NotBlank(message = "Origin is required")
     private String origin;
 

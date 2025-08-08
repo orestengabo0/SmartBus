@@ -5,24 +5,23 @@ import com.example.exception.CredentialsException;
 import com.example.exception.ResourceNotFoundException;
 import com.example.model.User;
 import com.example.repository.UserRepository;
-import com.example.dto.ProfileResponse;
-import com.example.dto.UpdateProfileRequest;
-import com.example.dto.ChangePasswordRequest;
-import com.example.dto.CreateOperatorRequest;
-import com.example.dto.CreateAdminRequest;
+import com.example.dto.responses.ProfileResponse;
+import com.example.dto.requests.UpdateProfileRequest;
+import com.example.dto.requests.ChangePasswordRequest;
+import com.example.dto.requests.CreateOperatorRequest;
+import com.example.dto.requests.CreateAdminRequest;
 import com.example.model.Role;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class UserService {
-    @Autowired
-    private UserRepository userRepository;
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
     public ProfileResponse getProfile(String email) {

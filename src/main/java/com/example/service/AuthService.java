@@ -9,12 +9,12 @@ import com.example.model.User;
 import com.example.model.Role;
 import com.example.repository.RefreshTokenRepository;
 import com.example.repository.UserRepository;
-import com.example.dto.RegisterRequest;
-import com.example.dto.LoginRequest;
-import com.example.dto.AuthResponse;
+import com.example.dto.requests.RegisterRequest;
+import com.example.dto.requests.LoginRequest;
+import com.example.dto.responses.AuthResponse;
 import com.example.config.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,15 +23,12 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class AuthService {
-    @Autowired
-    private UserRepository userRepository;
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-    @Autowired
-    private JwtUtil jwtUtil;
-    @Autowired
-    private RefreshTokenRepository refreshTokenRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     @Transactional
     public AuthResponse register(RegisterRequest registerRequest, HttpServletRequest req) {

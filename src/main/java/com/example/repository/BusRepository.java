@@ -10,9 +10,8 @@ import com.example.model.Bus;
 import com.example.model.BusPark;
 
 public interface BusRepository extends JpaRepository<Bus, Long> {
-    List<Bus> findByCurrentBusPark(BusPark busPark);
     List<Bus> findByOperator(User operator);
     Optional<Bus> findByPlateNumber(String plateNumber);
-
     List<Bus> findByActive(boolean active);
+    Bus getBusById(Long id);
 }

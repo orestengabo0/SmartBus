@@ -1,10 +1,10 @@
-package com.example.dto;
+package com.example.dto.requests;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-public class BusParkDTO {
+public class BusParkRequest {
     @NotBlank(message = "Name is required")
     private String name;
 

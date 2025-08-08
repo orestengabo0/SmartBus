@@ -1,5 +1,6 @@
 package com.example.model;
 
+import com.fasterxml.jackson.annotation.JsonIdentityReference;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -32,7 +33,6 @@ public class BusPark {
     @OneToMany(mappedBy = "arrivalPark")
     private List<Trip> arrivalTrips;
 
-    // New fields
     private double latitude;
     private double longitude;
     private boolean active = true;

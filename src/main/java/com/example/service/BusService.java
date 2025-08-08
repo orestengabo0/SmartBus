@@ -1,6 +1,7 @@
 package com.example.service;
 
-import com.example.dto.BusDTO;
+import com.example.dto.requests.BusRequest;
+import com.example.dto.responses.BusResponse;
 import com.example.exception.ResourceAlreadyExistsException;
 import com.example.exception.ResourceNotFoundException;
 import com.example.exception.UnauthorizedException;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -27,9 +29,9 @@ public class BusService {
     private final BusParkRepository busParkRepository;
     private final CurrentUserService currentUserService;
 
-    public Bus createBus(BusDTO busDTO) {
+    public BusResponse createBus(BusRequest busRequest) {
         // Validate
-        if (busRepository.findByPlateNumber(busDTO.getPlateNumber()).isPresent()) {
+        if (busRepository.findByPlateNumber(busRequest.getPlateNumber()).isPresent()) {
             throw new ResourceAlreadyExistsException("A bus with this plate number already exists");
         }
 
@@ -40,8 +42,8 @@ public class BusService {
             operator = currentUser;
         } else if (currentUser.getRole() == Role.ADMIN || currentUser.getRole() == Role.SUPER_ADMIN) {
             //admin can assign buses to any operator
-            if(busDTO.getOperatorId() != null){
-                operator = userRepository.findById(busDTO.getOperatorId())
+            if(busRequest.getOperatorId() != null){
+                operator = userRepository.findById(busRequest.getOperatorId())
                         .orElseThrow(() -> new ResourceNotFoundException("Operator not found"));
                 if(operator.getRole() != Role.OPERATOR){
                     throw new IllegalArgumentException("Operator is not a operator");
@@ -54,38 +56,44 @@ public class BusService {
         }
 
         // Get bus park
-        BusPark busPark = busParkRepository.findById(busDTO.getBusParkId())
+        BusPark busPark = busParkRepository.findById(busRequest.getBusParkId())
                 .orElseThrow(() -> new ResourceNotFoundException("Bus park not found"));
 
         Bus bus = new Bus();
-        bus.setPlateNumber(busDTO.getPlateNumber());
-        bus.setTotalSeats(busDTO.getTotalSeats());
+        bus.setPlateNumber(busRequest.getPlateNumber());
+        bus.setTotalSeats(busRequest.getTotalSeats());
         bus.setCurrentBusPark(busPark);
         bus.setOperator(operator);
-        bus.setBusModel(busDTO.getBusModel());
-        bus.setBusType(busDTO.getBusType());
-        bus.setYearOfManufacture(busDTO.getYearOfManufacture());
+        bus.setBusModel(busRequest.getBusModel());
+        bus.setBusType(busRequest.getBusType());
+        bus.setYearOfManufacture(busRequest.getYearOfManufacture());
         bus.setCreatedAt(LocalDateTime.now());
 
         // Initialize seats
         bus.initializeSeats();
 
-        return busRepository.save(bus);
+        busRepository.save(bus);
+        return convertToDTO(bus);
     }
 
-    public List<Bus> getAllBuses() {
+    public List<BusResponse> getAllBuses() {
         User currentUser = currentUserService.getCurrentUser();
+        List<Bus> buses;
 
         if (currentUser.getRole() == Role.OPERATOR) {
             // Operators can only see their own buses
-            return busRepository.findByOperator(currentUser);
+            buses = busRepository.findByOperator(currentUser);
         } else {
             // Admins can see all buses
-            return busRepository.findByActive(true);
+            buses = busRepository.findByActive(true);
         }
+
+        return buses.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
-    public Bus getBusById(Long id) {
+    public BusResponse getBusById(Long id) {
         Bus bus = busRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bus not found with id: " + id));
 
@@ -97,11 +105,11 @@ public class BusService {
             throw new UnauthorizedException("You don't have access to this bus");
         }
 
-        return bus;
+        return convertToDTO(bus);
     }
 
-    public Bus updateBus(Long id, BusDTO busDTO) {
-        Bus bus = getBusById(id);
+    public BusResponse updateBus(Long id, BusRequest busRequest) {
+        Bus bus = busRepository.getBusById(id);
 
         // Check permissions - only operator of this bus or admin can update
         User currentUser = currentUserService.getCurrentUser();
@@ -111,32 +119,32 @@ public class BusService {
         }
 
         // Update fields
-        if (busDTO.getPlateNumber() != null) {
-            bus.setPlateNumber(busDTO.getPlateNumber());
+        if (busRequest.getPlateNumber() != null) {
+            bus.setPlateNumber(busRequest.getPlateNumber());
         }
 
-        if (busDTO.getBusModel() != null) {
-            bus.setBusModel(busDTO.getBusModel());
+        if (busRequest.getBusModel() != null) {
+            bus.setBusModel(busRequest.getBusModel());
         }
 
-        if (busDTO.getBusType() != null) {
-            bus.setBusType(busDTO.getBusType());
+        if (busRequest.getBusType() != null) {
+            bus.setBusType(busRequest.getBusType());
         }
 
-        if (busDTO.getYearOfManufacture() > 0) {
-            bus.setYearOfManufacture(busDTO.getYearOfManufacture());
+        if (busRequest.getYearOfManufacture() > 0) {
+            bus.setYearOfManufacture(busRequest.getYearOfManufacture());
         }
 
-        if (busDTO.getBusParkId() != null) {
-            BusPark busPark = busParkRepository.findById(busDTO.getBusParkId())
+        if (busRequest.getBusParkId() != null) {
+            BusPark busPark = busParkRepository.findById(busRequest.getBusParkId())
                     .orElseThrow(() -> new ResourceNotFoundException("Bus park not found"));
             bus.setCurrentBusPark(busPark);
         }
 
         // Admin can reassign bus to different operator
         if ((currentUser.getRole() == Role.ADMIN || currentUser.getRole() == Role.SUPER_ADMIN)
-                && busDTO.getOperatorId() != null) {
-            User operator = userRepository.findById(busDTO.getOperatorId())
+                && busRequest.getOperatorId() != null) {
+            User operator = userRepository.findById(busRequest.getOperatorId())
                     .orElseThrow(() -> new ResourceNotFoundException("Operator not found"));
 
             if (operator.getRole() != Role.OPERATOR) {
@@ -146,11 +154,12 @@ public class BusService {
             bus.setOperator(operator);
         }
 
-        return busRepository.save(bus);
+        busRepository.save(bus);
+        return convertToDTO(bus);
     }
 
     public void deleteBus(Long id) {
-        Bus bus = getBusById(id);
+        Bus bus = busRepository.getBusById(id);
 
         // Check permissions
         User currentUser = currentUserService.getCurrentUser();
@@ -161,5 +170,50 @@ public class BusService {
 
         bus.setActive(false); // Soft delete
         busRepository.save(bus);
+    }
+
+    public BusResponse convertToDTO(Bus bus) {
+        BusResponse dto = new BusResponse();
+
+        // Set basic fields
+        dto.setId(bus.getId());
+        dto.setPlateNumber(bus.getPlateNumber());
+        dto.setTotalSeats(bus.getTotalSeats());
+
+        // Set BusPark info
+        if (bus.getCurrentBusPark() != null) {
+            dto.setBusParkId(bus.getCurrentBusPark().getId());
+            dto.setBusParkName(bus.getCurrentBusPark().getName());
+            dto.setBusParkLocation(bus.getCurrentBusPark().getLocation());
+        }
+
+        // Set Operator info
+        if (bus.getOperator() != null) {
+            dto.setOperatorId(bus.getOperator().getId());
+            dto.setOperatorName(bus.getOperator().getFullName());
+            dto.setOperatorEmail(bus.getOperator().getEmail());
+        }
+
+        // Calculate seat counts
+        if (bus.getSeats() != null) {
+            int booked = (int) bus.getSeats().stream()
+                    .filter(seat -> seat.isBooked())
+                    .count();
+
+            dto.setBookedSeats(booked);
+            dto.setAvailableSeats(bus.getTotalSeats() - booked);
+        } else {
+            dto.setAvailableSeats(bus.getTotalSeats());
+            dto.setBookedSeats(0);
+        }
+
+        // Set other details
+        dto.setBusModel(bus.getBusModel());
+        dto.setBusType(bus.getBusType());
+        dto.setYearOfManufacture(bus.getYearOfManufacture());
+        dto.setActive(bus.isActive());
+        dto.setCreatedAt(bus.getCreatedAt());
+
+        return dto;
     }
 }

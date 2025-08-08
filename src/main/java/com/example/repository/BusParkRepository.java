@@ -15,4 +15,6 @@ public interface BusParkRepository extends JpaRepository<BusPark, Long> {
     boolean existsByNameAndLocation(@NotBlank String name, @NotBlank String location);
 
     List<BusPark> findByActive(boolean active);
+
+    BusPark getBusParkById(Long id);
 }

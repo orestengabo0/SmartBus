@@ -1,4 +1,4 @@
-package com.example.dto;
+package com.example.dto.requests;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
-public class BusDTO {
+public class BusRequest {
     @NotBlank(message = "Plate number is required")
     private String plateNumber;
 
