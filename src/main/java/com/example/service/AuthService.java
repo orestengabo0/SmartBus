@@ -12,7 +12,7 @@ import com.example.repository.UserRepository;
 import com.example.dto.RegisterRequest;
 import com.example.dto.LoginRequest;
 import com.example.dto.AuthResponse;
-import com.example.smartbus.JwtUtil;
+import com.example.config.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;

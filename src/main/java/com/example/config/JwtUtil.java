@@ -1,4 +1,4 @@
-package com.example.smartbus;
+package com.example.config;
 
 import io.jsonwebtoken.*;
 import org.springframework.beans.factory.annotation.Value;
@@ -6,7 +6,6 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.JwtException;
-import java.security.Key;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 
