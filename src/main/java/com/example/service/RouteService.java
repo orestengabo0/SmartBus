@@ -56,9 +56,10 @@ public class RouteService {
                 .collect(Collectors.toList());
     }
 
-    public Route getRouteById(Long id) {
-        return routeRepository.findById(id)
+    public RouteResponse getRouteById(Long id) {
+        Route route = routeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Route not found with id: " + id));
+        return convertToDTO(route);
     }
 
     public List<RouteResponse> getRoutesByOriginAndDestination(String origin, String destination) {
@@ -89,7 +90,7 @@ public class RouteService {
             throw new UnauthorizedException("Only admins can update routes");
         }
 
-        Route route = getRouteById(id);
+        Route route = routeRepository.getRouteById(id);
 
         route.setOrigin(routeRequest.getOrigin());
         route.setDestination(routeRequest.getDestination());
@@ -108,7 +109,7 @@ public class RouteService {
             throw new UnauthorizedException("Only admins can delete routes");
         }
 
-        Route route = getRouteById(id);
+        Route route = routeRepository.getRouteById(id);
         route.setActive(false); // Soft delete
         routeRepository.save(route);
     }

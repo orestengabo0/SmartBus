@@ -2,7 +2,6 @@ package com.example.controller;
 
 import com.example.dto.requests.RouteRequest;
 import com.example.dto.responses.RouteResponse;
-import com.example.model.Route;
 import com.example.service.RouteService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -11,8 +10,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -23,13 +22,9 @@ import java.util.List;
 @RequestMapping("/api/v1/routes")
 @Tag(name = "Route Management", description = "APIs for managing travel routes between locations")
 @SecurityRequirement(name = "bearer-jwt")
+@RequiredArgsConstructor
 public class RouteController {
     private final RouteService routeService;
-
-    @Autowired
-    public RouteController(RouteService routeService) {
-        this.routeService = routeService;
-    }
 
     @Operation(summary = "Get all routes",
             description = "Retrieves a list of all active routes in the system")
@@ -50,7 +45,7 @@ public class RouteController {
             @ApiResponse(responseCode = "404", description = "Route not found")
     })
     @GetMapping("/{id}")
-    public ResponseEntity<Route> getRouteById(
+    public ResponseEntity<RouteResponse> getRouteById(
             @Parameter(description = "ID of the route to retrieve") @PathVariable Long id) {
         return ResponseEntity.ok(routeService.getRouteById(id));
     }

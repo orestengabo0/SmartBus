@@ -3,6 +3,7 @@ package com.example.service;
 import com.example.exception.EmailAlreadyRegisteredException;
 import com.example.exception.CredentialsException;
 import com.example.exception.ResourceNotFoundException;
+import com.example.exception.UnauthorizedException;
 import com.example.model.User;
 import com.example.repository.UserRepository;
 import com.example.dto.responses.ProfileResponse;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CurrentUserService currentUserService;
 
     @Transactional(readOnly = true)
     public ProfileResponse getProfile(String email) {
@@ -67,6 +69,10 @@ public class UserService {
     }
 
     public ProfileResponse createOperator(CreateOperatorRequest request) {
+        User currentUser = currentUserService.getCurrentUser();
+        if(currentUser.getRole() != Role.ADMIN && currentUser.getRole() != Role.SUPER_ADMIN) {
+            throw new UnauthorizedException("You do not have permission to add operator");
+        }
         User user = createUserFromRequest(
                 request.getFullName(),
                 request.getEmail(),
@@ -78,6 +84,10 @@ public class UserService {
     }
 
     public ProfileResponse createAdmin(CreateAdminRequest request) {
+        User currentUser = currentUserService.getCurrentUser();
+        if(currentUser.getRole() != Role.SUPER_ADMIN) {
+            throw new UnauthorizedException("You do not have permission to add admin user");
+        }
         User user = createUserFromRequest(
                 request.getFullName(),
                 request.getEmail(),

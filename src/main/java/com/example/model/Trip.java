@@ -5,8 +5,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.*;
+import lombok.Data;
 
 @Entity
+@Data
 public class Trip {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
