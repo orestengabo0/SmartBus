@@ -43,15 +43,18 @@ public class Trip {
     // Tracking
     @OneToMany(mappedBy = "trip")
     private List<Booking> bookings = new ArrayList<>();
-    
+
     private int availableSeats;
     private boolean active = true;
     private LocalDateTime createdAt;
     
     // Utility method to check seat availability
-    public boolean hasAvailableSeats() {
-        return availableSeats > 0;
+    public boolean hasAvailableSeats(int requestedSeats) {
+        return availableSeats >= requestedSeats;
     }
+
+    @Version
+    private Long version;
     
     // Method to update available seats count
     public void updateAvailableSeats() {

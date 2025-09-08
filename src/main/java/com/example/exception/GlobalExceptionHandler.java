@@ -104,4 +104,21 @@ public class GlobalExceptionHandler {
         ErrorResponse err = new ErrorResponse("INVALID_INPUT", ex.getMessage());
         return new ResponseEntity<>(err, HttpStatus.BAD_REQUEST);
     }
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ErrorResponse> handleBadRequestException(BadRequestException ex) {
+        ErrorResponse err = new ErrorResponse("INVALID_REQUEST", ex.getMessage());
+        return new ResponseEntity<>(err, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(OptimisticLockingException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLockingException(OptimisticLockingException ex) {
+        ErrorResponse err = new ErrorResponse("OPTIMISTIC_LOCK", ex.getMessage());
+        return new ResponseEntity<>(err, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(PermissionException.class)
+    public ResponseEntity<ErrorResponse> handlePermissionException(PermissionException ex) {
+        ErrorResponse err = new ErrorResponse("PERMISSION", ex.getMessage());
+        return new ResponseEntity<>(err, HttpStatus.BAD_REQUEST);
+    }
 }

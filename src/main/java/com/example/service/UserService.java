@@ -97,6 +97,9 @@ public class UserService {
         );
         return toProfileResponse(user);
     }
+    public boolean isAdmin(User user){
+        return user.getRole() == Role.ADMIN || user.getRole() == Role.SUPER_ADMIN;
+    }
 
     private ProfileResponse toProfileResponse(User user) {
         ProfileResponse profile = new ProfileResponse();
