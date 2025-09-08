@@ -121,4 +121,10 @@ public class GlobalExceptionHandler {
         ErrorResponse err = new ErrorResponse("PERMISSION", ex.getMessage());
         return new ResponseEntity<>(err, HttpStatus.BAD_REQUEST);
     }
+
+    @ExceptionHandler(QRCodeException.class)
+    public ResponseEntity<ErrorResponse> handleQRCodeException(QRCodeException ex) {
+        ErrorResponse err = new ErrorResponse("QRCODE_ERROR", ex.getMessage());
+        return new ResponseEntity<>(err, HttpStatus.BAD_REQUEST);
+    }
 }

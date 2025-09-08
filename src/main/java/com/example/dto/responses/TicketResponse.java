@@ -1,8 +1,11 @@
 package com.example.dto.responses;
 
+import lombok.Data;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Data
 public class TicketResponse {
     private Long ticketId;
     private String ticketNumber;

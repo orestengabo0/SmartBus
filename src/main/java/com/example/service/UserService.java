@@ -13,6 +13,9 @@ import com.example.dto.requests.CreateOperatorRequest;
 import com.example.dto.requests.CreateAdminRequest;
 import com.example.model.Role;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
@@ -99,6 +102,12 @@ public class UserService {
     }
     public boolean isAdmin(User user){
         return user.getRole() == Role.ADMIN || user.getRole() == Role.SUPER_ADMIN;
+    }
+
+    public boolean isAdminOrOperator(User user){
+        return user.getRole() == Role.ADMIN ||
+                user.getRole() == Role.SUPER_ADMIN ||
+                user.getRole() == Role.OPERATOR;
     }
 
     private ProfileResponse toProfileResponse(User user) {
