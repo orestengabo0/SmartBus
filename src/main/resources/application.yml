@@ -22,3 +22,7 @@ springdoc:
     tags-sorter: alpha
     operations-sorter: method
   show-actuator: true
+google:
+  maps:
+    api:
+      key: AIzaSyBFD5l9RJOMRnRS9uxhRERyt4KDTa5NVvc

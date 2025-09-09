@@ -12,12 +12,14 @@ public class RouteRequest {
     @NotBlank(message = "Destination is required")
     private String destination;
 
-    @Min(value = 0, message = "Distance must be positive")
+//    @Min(value = 0, message = "Distance must be positive")
     private double distanceKm;
 
-    @Min(value = 0, message = "Price must be positive")
+//    @Min(value = 0, message = "Price must be positive")
     private double price;
 
-    @Min(value = 1, message = "Duration must be at least 1 minute")
+//    @Min(value = 1, message = "Duration must be at least 1 minute")
     private int estimatedDurationMinutes;
+
+    private boolean autoCalculateDistance = true;
 }
