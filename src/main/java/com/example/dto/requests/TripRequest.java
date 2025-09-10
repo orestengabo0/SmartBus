@@ -28,7 +28,4 @@ public class TripRequest {
     @NotNull(message = "Arrival time is required")
     @Future(message = "Arrival time must be in the future")
     private LocalDateTime arrivalTime;
-
-    @Min(value = 0, message = "Price must be a positive number")
-    private double amount;
 }

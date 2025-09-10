@@ -32,6 +32,8 @@ public class Booking {
     private String status; // PENDING, CONFIRMED, CANCELLED
     private LocalDateTime bookingTime;
     private LocalDateTime expiryTime; //For pending bookings
+
+    @Column(name = "price")
     private double totalAmount;
 
     @OneToOne(mappedBy = "booking", cascade = CascadeType.ALL)

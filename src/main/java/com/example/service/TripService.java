@@ -79,7 +79,7 @@ public class TripService {
         trip.setArrivalPark(arrivalPark);
         trip.setDepartureTime(tripDTO.getDepartureTime());
         trip.setArrivalTime(tripDTO.getArrivalTime());
-        trip.setAmount(tripDTO.getAmount());
+        trip.setAmount(route.getPrice());
         trip.setStatus("SCHEDULED");
         trip.setAvailableSeats(bus.getTotalSeats()); // Initially all seats are available
         trip.setActive(true);
@@ -155,9 +155,12 @@ public class TripService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public TripResponse updateTrip(Long id, TripRequest tripDTO) {
         Trip trip = tripRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip not found"));
+
+        System.out.println("Updating trip");
 
         // Validate user access
         User currentUser = currentUserService.getCurrentUser();
@@ -209,7 +212,7 @@ public class TripService {
         trip.setArrivalPark(arrivalPark);
         trip.setDepartureTime(tripDTO.getDepartureTime());
         trip.setArrivalTime(tripDTO.getArrivalTime());
-        trip.setAmount(tripDTO.getAmount());
+        trip.setAmount(route.getPrice());
 
         Trip updatedTrip = tripRepository.save(trip);
         return convertToDTO(updatedTrip);
