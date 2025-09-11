@@ -6,7 +6,6 @@ import com.example.exception.PermissionException;
 import com.example.exception.QRCodeException;
 import com.example.exception.ResourceNotFoundException;
 import com.example.model.*;
-import com.example.repository.BookingRepository;
 import com.example.repository.TicketRepository;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.MultiFormatWriter;
@@ -17,8 +16,8 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
-import org.apache.pdfbox.pdmodel.font.PDType3Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.stereotype.Service;
@@ -38,10 +37,6 @@ public class TicketService {
     private final TicketRepository ticketRepository;
     private final CurrentUserService currentUserService;
     private final UserService userService;
-
-    private static final DateTimeFormatter FORMATTER =
-            DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm");
-    private final BookingRepository bookingRepository;
 
     @Transactional
     public Ticket generateTicket(Booking booking) {
@@ -98,20 +93,7 @@ public class TicketService {
      * Get ticket QR code
      */
     public byte[] getTicketQRCode(Long bookingId) {
-        User currentUser = currentUserService.getCurrentUser();
-
-        // Find ticket
-        Ticket ticket = ticketRepository.findAll().stream()
-                .filter(t -> t.getBooking().getId().equals(bookingId))
-                .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
-
-        // Check ownership
-        if (!ticket.getBooking().getUser().getId().equals(currentUser.getId()) &&
-                !userService.isAdmin(currentUser)) {
-            throw new PermissionException("You don't have access to this ticket");
-        }
-
+        Ticket ticket = findMyTicket(bookingId);
         return ticket.getQrcode();
     }
 
@@ -119,20 +101,7 @@ public class TicketService {
      * Generate PDF ticket
      */
     public byte[] generateTicketPDF(Long bookingId) {
-        User currentUser = currentUserService.getCurrentUser();
-
-        // Find ticket
-        Ticket ticket = ticketRepository.findAll().stream()
-                .filter(t -> t.getBooking().getId().equals(bookingId))
-                .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
-
-        // Check ownership
-        if (!ticket.getBooking().getUser().getId().equals(currentUser.getId()) &&
-                !userService.isAdmin(currentUser)) {
-            throw new PermissionException("You don't have access to this ticket");
-        }
-
+        Ticket ticket = findMyTicket(bookingId);
         // Generate PDF
         return createPDF(ticket);
     }
@@ -171,108 +140,139 @@ public class TicketService {
         return mapToTicketResponse(validatedTicket);
     }
 
+    private Ticket findMyTicket(Long bookingId){
+        User currentUser = currentUserService.getCurrentUser();
+
+        // Find ticket
+        Ticket ticket = ticketRepository.findAll().stream()
+                .filter(t -> t.getBooking().getId().equals(bookingId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
+
+        // Check ownership
+        if (!ticket.getBooking().getUser().getId().equals(currentUser.getId()) &&
+                !userService.isAdmin(currentUser)) {
+            throw new PermissionException("You don't have access to this ticket");
+        }
+
+        return ticket;
+    }
+
     private byte[] createPDF(Ticket ticket) {
         try (PDDocument document = new PDDocument();
              ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
-            // Create a new page
-            PDPage page = new PDPage(PDRectangle.A4);
+            // Create a smaller page size (similar to a receipt)
+            // Custom size: 3.5 inches wide x 5.5 inches tall (mobile-friendly)
+            float width = 252; // 3.5 inches * 72 points/inch
+            float height = 396; // 5.5 inches * 72 points/inch
+            PDRectangle customPageSize = new PDRectangle(width, height);
+            PDPage page = new PDPage(customPageSize);
             document.addPage(page);
 
             // Create content stream
             try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
                 // Set up fonts
-                PDType1Font titleFont = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
-                PDType1Font normalFont = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+                PDFont titleFont = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+                PDFont normalFont = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
 
-                // Starting position
-                float yPosition = 750;
-                float margin = 50;
+                float margin = 20;
+                float yPosition = height - 30;
 
-                // Title
-                contentStream.beginText();
-                contentStream.setFont(titleFont, 24);
-                contentStream.newLineAtOffset(200, yPosition);
-                contentStream.showText("SMART BUS TICKET");
-                contentStream.endText();
+                // Company header
+                contentStream.setFont(titleFont, 16);
+                drawCenteredText(contentStream, "SMARTBUS", width / 2, yPosition);
+                yPosition -= 18;
 
-                yPosition -= 40;
-
-                // Draw a line under title
-                contentStream.moveTo(margin, yPosition);
-                contentStream.lineTo(page.getMediaBox().getWidth() - margin, yPosition);
-                contentStream.stroke();
-
-                yPosition -= 30;
-
-                // Ticket details
-                contentStream.setFont(titleFont, 14);
-                addTextLine(contentStream, "Ticket Number: " + ticket.getTicketNumber(), margin, yPosition);
-
-                yPosition -= 30;
-
-                // Passenger information
-                contentStream.setFont(titleFont, 12);
-                addTextLine(contentStream, "PASSENGER INFORMATION", margin, yPosition);
+                contentStream.setFont(normalFont, 8);
+                drawCenteredText(contentStream, "Digital Ticket", width / 2, yPosition);
                 yPosition -= 20;
 
-                contentStream.setFont(normalFont, 10);
-                User passenger = ticket.getBooking().getUser();
-                addTextLine(contentStream, "Name: " + passenger.getFullName(), margin + 20, yPosition);
+                // Draw separator line
+                drawLine(contentStream, margin, yPosition, width - margin, yPosition);
                 yPosition -= 15;
-                addTextLine(contentStream, "Email: " + passenger.getEmail(), margin + 20, yPosition);
-                yPosition -= 15;
-                addTextLine(contentStream, "Phone: " + passenger.getPhone(), margin + 20, yPosition);
 
-                yPosition -= 30;
-
-                // Trip information
-                contentStream.setFont(titleFont, 12);
-                addTextLine(contentStream, "TRIP INFORMATION", margin, yPosition);
+                // Ticket number (prominent)
+                contentStream.setFont(titleFont, 10);
+                drawCenteredText(contentStream, ticket.getTicketNumber(), width / 2, yPosition);
                 yPosition -= 20;
 
-                contentStream.setFont(normalFont, 10);
+                // QR Code at the top for easy scanning
+                if (ticket.getQrcode() != null) {
+                    PDImageXObject qrImage = PDImageXObject.createFromByteArray(document, ticket.getQrcode(), "QR");
+                    float qrSize = 100;
+                    float qrX = (width - qrSize) / 2;
+                    contentStream.drawImage(qrImage, qrX, yPosition - qrSize, qrSize, qrSize);
+                    yPosition -= (qrSize + 15);
+                }
+
+                // Route information (most important)
+                drawLine(contentStream, margin, yPosition, width - margin, yPosition);
+                yPosition -= 15;
+
+                contentStream.setFont(titleFont, 9);
+                addTextLine(contentStream, "FROM:", margin, yPosition);
+                contentStream.setFont(normalFont, 9);
+                addTextLine(contentStream, ticket.getBooking().getTrip().getRoute().getOrigin(), margin + 35, yPosition);
+                yPosition -= 15;
+
+                contentStream.setFont(titleFont, 9);
+                addTextLine(contentStream, "TO:", margin, yPosition);
+                contentStream.setFont(normalFont, 9);
+                addTextLine(contentStream, ticket.getBooking().getTrip().getRoute().getDestination(), margin + 35, yPosition);
+                yPosition -= 20;
+
+                // Date and time
+                DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy");
+                DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
                 Trip trip = ticket.getBooking().getTrip();
-                addTextLine(contentStream, "From: " + trip.getRoute().getOrigin(), margin + 20, yPosition);
-                yPosition -= 15;
-                addTextLine(contentStream, "To: " + trip.getRoute().getDestination(), margin + 20, yPosition);
-                yPosition -= 15;
-                addTextLine(contentStream, "Bus: " + trip.getBus().getPlateNumber() + " (" + trip.getBus().getBusType() + ")", margin + 20, yPosition);
+
+                contentStream.setFont(titleFont, 9);
+                addTextLine(contentStream, "DATE:", margin, yPosition);
+                contentStream.setFont(normalFont, 9);
+                addTextLine(contentStream, trip.getDepartureTime().format(dateFormatter), margin + 35, yPosition);
                 yPosition -= 15;
 
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm");
-                addTextLine(contentStream, "Departure: " + trip.getDepartureTime().format(formatter), margin + 20, yPosition);
-                yPosition -= 15;
-                addTextLine(contentStream, "Arrival: " + trip.getArrivalTime().format(formatter), margin + 20, yPosition);
-
-                yPosition -= 30;
-
-                // Seat information
-                contentStream.setFont(titleFont, 12);
-                addTextLine(contentStream, "SEAT INFORMATION", margin, yPosition);
+                contentStream.setFont(titleFont, 9);
+                addTextLine(contentStream, "TIME:", margin, yPosition);
+                contentStream.setFont(normalFont, 9);
+                addTextLine(contentStream, trip.getDepartureTime().format(timeFormatter) + " - " +
+                        trip.getArrivalTime().format(timeFormatter), margin + 35, yPosition);
                 yPosition -= 20;
 
-                contentStream.setFont(normalFont, 10);
+                // Passenger and seat info
+                drawLine(contentStream, margin, yPosition, width - margin, yPosition);
+                yPosition -= 15;
+
+                contentStream.setFont(normalFont, 8);
+                addTextLine(contentStream, "Passenger: " + ticket.getBooking().getUser().getFullName(), margin, yPosition);
+                yPosition -= 12;
+
                 String seats = ticket.getBooking().getSeatNumbers().stream()
                         .map(String::valueOf)
                         .collect(Collectors.joining(", "));
-                addTextLine(contentStream, "Seat(s): " + seats, margin + 20, yPosition);
+                addTextLine(contentStream, "Seat(s): " + seats, margin, yPosition);
+                yPosition -= 12;
+
+                addTextLine(contentStream, "Bus: " + trip.getBus().getPlateNumber(), margin, yPosition);
+                yPosition -= 20;
+
+                // Price
+                drawLine(contentStream, margin, yPosition, width - margin, yPosition);
                 yPosition -= 15;
-                addTextLine(contentStream, "Total Amount: $" + String.format("%.2f", ticket.getBooking().getTotalAmount()), margin + 20, yPosition);
 
-                yPosition -= 40;
-
-                // Add QR code
-                if (ticket.getQrcode() != null) {
-                    PDImageXObject qrImage = PDImageXObject.createFromByteArray(document, ticket.getQrcode(), "QR");
-                    contentStream.drawImage(qrImage, margin + 150, yPosition - 150, 150, 150);
-                    yPosition -= 170;
-                }
+                contentStream.setFont(titleFont, 10);
+                addTextLine(contentStream, "TOTAL: $" + String.format("%.2f", ticket.getBooking().getTotalAmount()), margin, yPosition);
+                yPosition -= 20;
 
                 // Footer
-                contentStream.setFont(normalFont, 8);
-                addTextLine(contentStream, "Generated on: " + LocalDateTime.now().format(formatter), margin, 50);
-                addTextLine(contentStream, "Please present this ticket at boarding", margin, 35);
+                drawLine(contentStream, margin, yPosition, width - margin, yPosition);
+                yPosition -= 12;
+
+                contentStream.setFont(normalFont, 6);
+                drawCenteredText(contentStream, "Present this ticket at boarding", width / 2, yPosition);
+                yPosition -= 10;
+                drawCenteredText(contentStream, "Generated: " + LocalDateTime.now().format(dateFormatter), width / 2, yPosition);
             }
 
             // Save to byte array
@@ -282,6 +282,23 @@ public class TicketService {
         } catch (Exception e) {
             throw new RuntimeException("Error generating PDF ticket", e);
         }
+    }
+
+    // Helper method to draw centered text
+    private void drawCenteredText(PDPageContentStream contentStream, String text, float centerX, float y) throws IOException {
+        contentStream.beginText();
+        // This is approximate - for perfect centering you'd need to calculate text width
+        float textWidth = text.length() * 4; // Rough approximation
+        contentStream.newLineAtOffset(centerX - (textWidth / 2), y);
+        contentStream.showText(text);
+        contentStream.endText();
+    }
+
+    // Helper method to draw a line
+    private void drawLine(PDPageContentStream contentStream, float startX, float startY, float endX, float endY) throws IOException {
+        contentStream.moveTo(startX, startY);
+        contentStream.lineTo(endX, endY);
+        contentStream.stroke();
     }
 
     // Helper method to add text lines
