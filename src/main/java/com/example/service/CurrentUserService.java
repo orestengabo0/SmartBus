@@ -27,10 +27,4 @@ public class CurrentUserService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User Not Found"));
     }
-
-    public boolean hasRole(String role) {
-        return SecurityContextHolder.getContext().getAuthentication()
-                .getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_"+role));
-    }
 }

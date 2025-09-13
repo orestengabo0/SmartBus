@@ -4,6 +4,7 @@ import com.example.exception.EmailAlreadyRegisteredException;
 import com.example.exception.CredentialsException;
 import com.example.exception.ResourceNotFoundException;
 import com.example.exception.UnauthorizedException;
+import com.example.mappers.UserMapper;
 import com.example.model.User;
 import com.example.repository.UserRepository;
 import com.example.dto.responses.ProfileResponse;
@@ -13,9 +14,6 @@ import com.example.dto.requests.CreateOperatorRequest;
 import com.example.dto.requests.CreateAdminRequest;
 import com.example.model.Role;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,12 +25,13 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUserService currentUserService;
+    private final UserMapper userMapper;
 
     @Transactional(readOnly = true)
     public ProfileResponse getProfile(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        return toProfileResponse(user);
+        return userMapper.toProfileResponse(user);
     }
 
     public ProfileResponse updateProfile(String email, UpdateProfileRequest request) {
@@ -41,7 +40,7 @@ public class UserService {
         user.setFullName(request.getFullName());
         user.setPhone(request.getPhone());
         userRepository.save(user);
-        return toProfileResponse(user);
+        return userMapper.toProfileResponse(user);
     }
 
     public void changePassword(String email, ChangePasswordRequest request) {
@@ -83,7 +82,7 @@ public class UserService {
                 request.getPhone(),
                 Role.OPERATOR
         );
-        return toProfileResponse(user);
+        return userMapper.toProfileResponse(user);
     }
 
     public ProfileResponse createAdmin(CreateAdminRequest request) {
@@ -98,26 +97,15 @@ public class UserService {
                 request.getPhone(),
                 Role.ADMIN
         );
-        return toProfileResponse(user);
+        return userMapper.toProfileResponse(user);
     }
     public boolean isAdmin(User user){
-        return user.getRole() == Role.ADMIN || user.getRole() == Role.SUPER_ADMIN;
+        return user.getRole() != Role.ADMIN && user.getRole() != Role.SUPER_ADMIN;
     }
 
     public boolean isAdminOrOperator(User user){
         return user.getRole() == Role.ADMIN ||
                 user.getRole() == Role.SUPER_ADMIN ||
                 user.getRole() == Role.OPERATOR;
-    }
-
-    private ProfileResponse toProfileResponse(User user) {
-        ProfileResponse profile = new ProfileResponse();
-        profile.setId(user.getId());
-        profile.setFullName(user.getFullName());
-        profile.setEmail(user.getEmail());
-        profile.setPhone(user.getPhone());
-        profile.setRole(user.getRole().name());
-        profile.setCreatedAt(user.getCreatedAt());
-        return profile;
     }
 }

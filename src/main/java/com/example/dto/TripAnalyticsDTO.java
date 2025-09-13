@@ -1,7 +1,12 @@
 package com.example.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
 import java.time.LocalDateTime;
 
+@Data
+@AllArgsConstructor
 public class TripAnalyticsDTO {
     private Long tripId;
     private String busPlateNumber;

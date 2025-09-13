@@ -29,7 +29,8 @@ public class Booking {
     )
     @Column(name = "seat_number")
     private List<Integer> seatNumbers = new ArrayList<>();
-    private String status; // PENDING, CONFIRMED, CANCELLED
+    @Enumerated(EnumType.STRING)
+    private BookingStatus status; // PENDING, CONFIRMED, CANCELLED
     private LocalDateTime bookingTime;
     private LocalDateTime expiryTime; //For pending bookings
 

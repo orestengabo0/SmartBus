@@ -1,5 +1,6 @@
 package com.example.dto.responses;
 
+import com.example.model.PaymentMethod;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -37,7 +38,7 @@ public class BookingResponse {
 
     // Payment info
     private boolean isPaid;
-    private String paymentMethod;
+    private PaymentMethod paymentMethod;
     private LocalDateTime paymentTime;
 
     // Ticket info

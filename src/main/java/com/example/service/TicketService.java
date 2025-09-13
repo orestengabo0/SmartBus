@@ -75,7 +75,7 @@ public class TicketService {
 
         // Check ownership
         if (!ticket.getBooking().getUser().getId().equals(currentUser.getId()) &&
-                !userService.isAdmin(currentUser)) {
+                userService.isAdmin(currentUser)) {
             throw new PermissionException("You don't have access to this ticket");
         }
 
@@ -151,7 +151,7 @@ public class TicketService {
 
         // Check ownership
         if (!ticket.getBooking().getUser().getId().equals(currentUser.getId()) &&
-                !userService.isAdmin(currentUser)) {
+                userService.isAdmin(currentUser)) {
             throw new PermissionException("You don't have access to this ticket");
         }
 

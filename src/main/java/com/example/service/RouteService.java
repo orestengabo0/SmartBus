@@ -121,27 +121,8 @@ public class RouteService {
         double price = distanceKm * baseRatePerKm;
         // Ensure minimum price
         price = Math.max(price, minimumPrice);
-        //round to the 2 demical price
+        //round to the 2 decimal price
         return Math.round(price * 100.0) / 100.0;
-    }
-
-    public RouteDistanceInfo previewRouteDistance(String origin, String destination) {
-        // Check permissions
-        User currentUser = currentUserService.getCurrentUser();
-        if (currentUser.getRole() != Role.ADMIN && currentUser.getRole() != Role.SUPER_ADMIN) {
-            throw new UnauthorizedException("Only admins can preview routes");
-        }
-        try {
-            RouteDistanceInfo distanceInfo = calculateDistance(origin, destination);
-            // Add suggested price to the response
-            distanceInfo.setSuggestedPrice(calculatePrice(distanceInfo.getDistanceKm()));
-            return distanceInfo;
-        } catch (Exception e) {
-            throw new BadRequestException(
-                    "Could not calculate distance between '" + origin + "' and '" + destination +
-                            "'. Error: " + e.getMessage()
-            );
-        }
     }
 
     private RouteDistanceInfo calculateDistance(String origin, String destination) {
@@ -246,30 +227,26 @@ public class RouteService {
                 }
             } catch (Exception e) {
                 // If calculation fails, use provided values
-                if (routeRequest.getDistanceKm() > 0) {
-                    route.setDistanceKm(routeRequest.getDistanceKm());
-                }
-                if (routeRequest.getEstimatedDurationMinutes() > 0) {
-                    route.setEstimatedDurationMinutes(routeRequest.getEstimatedDurationMinutes());
-                }
-                if (routeRequest.getPrice() > 0) {
-                    route.setPrice(routeRequest.getPrice());
-                }
+                verifyRouteDistancePriceAndDuration(routeRequest, route);
             }
         }else{
             // Use manually provided values
-            if (routeRequest.getDistanceKm() > 0) {
-                route.setDistanceKm(routeRequest.getDistanceKm());
-            }
-            if (routeRequest.getEstimatedDurationMinutes() > 0) {
-                route.setEstimatedDurationMinutes(routeRequest.getEstimatedDurationMinutes());
-            }
-            if (routeRequest.getPrice() > 0) {
-                route.setPrice(routeRequest.getPrice());
-            }
+            verifyRouteDistancePriceAndDuration(routeRequest, route);
         }
         Route updatedRoute = routeRepository.save(route);
         return convertToDTO(updatedRoute);
+    }
+
+    private void verifyRouteDistancePriceAndDuration(RouteRequest routeRequest, Route route) {
+        if (routeRequest.getDistanceKm() > 0) {
+            route.setDistanceKm(routeRequest.getDistanceKm());
+        }
+        if (routeRequest.getEstimatedDurationMinutes() > 0) {
+            route.setEstimatedDurationMinutes(routeRequest.getEstimatedDurationMinutes());
+        }
+        if (routeRequest.getPrice() > 0) {
+            route.setPrice(routeRequest.getPrice());
+        }
     }
 
     public void deleteRoute(Long id) {

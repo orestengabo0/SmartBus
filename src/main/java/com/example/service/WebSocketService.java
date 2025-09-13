@@ -2,6 +2,7 @@ package com.example.service;
 
 import com.example.dto.responses.BookingUpdateMessage;
 import com.example.dto.responses.SeatUpdateMessage;
+import com.example.model.BookingStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -22,7 +23,7 @@ public class WebSocketService {
     }
 
     // Send booking status updates to specific user
-    public void sendBookingUpdate(Long bookingId, String status, String message) {
+    public void sendBookingUpdate(Long bookingId, BookingStatus status, String message) {
         messagingTemplate.convertAndSend(
                 "/topic/bookings/" + bookingId,
                 new BookingUpdateMessage(bookingId, status, message)

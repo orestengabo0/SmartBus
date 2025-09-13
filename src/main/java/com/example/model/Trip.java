@@ -22,7 +22,6 @@ public class Trip {
     @JoinColumn(name = "route_id")
     private Route route;
     
-    // Add these fields to match BusPark mappings
     @ManyToOne
     @JoinColumn(name = "departure_park_id")
     private BusPark departurePark;
@@ -38,7 +37,8 @@ public class Trip {
     private double amount;
     
     // Trip status management
-    private String status; // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+    @Enumerated(EnumType.STRING)
+    private TripStatus status; // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
     
     // Tracking
     @OneToMany(mappedBy = "trip")
@@ -47,25 +47,6 @@ public class Trip {
     private int availableSeats;
     private boolean active = true;
     private LocalDateTime createdAt;
-    
-    // Utility method to check seat availability
-    public boolean hasAvailableSeats(int requestedSeats) {
-        return availableSeats >= requestedSeats;
-    }
-
     @Version
     private Long version;
-    
-    // Method to update available seats count
-    public void updateAvailableSeats() {
-        if (bus != null) {
-            int bookedSeats = 0;
-            if (bookings != null) {
-                bookedSeats = (int) bookings.stream()
-                    .filter(b -> "CONFIRMED".equals(b.getStatus()))
-                    .count();
-            }
-            this.availableSeats = bus.getTotalSeats() - bookedSeats;
-        }
-    }
 }

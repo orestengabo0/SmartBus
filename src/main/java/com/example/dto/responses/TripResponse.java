@@ -1,5 +1,6 @@
 package com.example.dto.responses;
 
+import com.example.model.TripStatus;
 import lombok.Data;
 import java.time.LocalDateTime;
 
@@ -38,7 +39,7 @@ public class TripResponse {
     private double amount;
 
     // Status
-    private String status;
+    private TripStatus status;
     private boolean active;
     private LocalDateTime createdAt;
 }

@@ -5,10 +5,7 @@ import com.example.dto.responses.PaymentResponse;
 import com.example.exception.BadRequestException;
 import com.example.exception.PermissionException;
 import com.example.exception.ResourceNotFoundException;
-import com.example.model.Booking;
-import com.example.model.Payment;
-import com.example.model.Ticket;
-import com.example.model.User;
+import com.example.model.*;
 import com.example.repository.BookingRepository;
 import com.example.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,12 +33,12 @@ public class PaymentService {
 
         // Check ownership
         if (!booking.getUser().getId().equals(currentUser.getId()) &&
-                !userService.isAdmin(currentUser)) {
+                userService.isAdmin(currentUser)) {
             throw new PermissionException("You don't have permission to pay for this booking");
         }
 
         // Validate booking status
-        if (!"PENDING".equals(booking.getStatus())) {
+        if (booking.getStatus() != BookingStatus.PENDING) {
             throw new BadRequestException("This booking is not in PENDING state");
         }
 
@@ -51,7 +48,7 @@ public class PaymentService {
         }
 
         // Simulate payment processing
-        boolean paymentSuccessful = simulatePaymentProcessing(paymentRequest);
+        boolean paymentSuccessful = simulatePaymentProcessing();
 
         if (!paymentSuccessful) {
             throw new BadRequestException("Payment failed. Please try again.");
@@ -62,14 +59,14 @@ public class PaymentService {
         payment.setPaymentMethod(paymentRequest.getPaymentMethod());
         payment.setTransactionId(generateTransactionId());
         payment.setAmount(booking.getTotalAmount());
-        payment.setStatus("SUCCESS");
+        payment.setStatus(PaymentStatus.COMPLETED);
         payment.setPaymentTime(LocalDateTime.now());
 
         // Save payment
         Payment savedPayment = paymentRepository.save(payment);
 
         // Update booking status
-        booking.setStatus("CONFIRMED");
+        booking.setStatus(BookingStatus.CONFIRMED);
         bookingRepository.save(booking);
 
         // Generate ticket
@@ -78,16 +75,16 @@ public class PaymentService {
         // Notify about payment confirmation
         webSocketService.sendBookingUpdate(
                 booking.getId(),
-                "CONFIRMED",
+                BookingStatus.CONFIRMED,
                 "Payment successful. Your ticket is ready."
         );
 
         // Create response
         PaymentResponse response = new PaymentResponse();
         response.setBookingId(booking.getId());
-        response.setTransactionId(payment.getTransactionId());
-        response.setAmount(payment.getAmount());
-        response.setStatus(payment.getStatus());
+        response.setTransactionId(savedPayment.getTransactionId());
+        response.setAmount(savedPayment.getAmount());
+        response.setStatus(savedPayment.getStatus());
         response.setTicketNumber(ticket.getTicketNumber());
 
         return response;
@@ -96,7 +93,7 @@ public class PaymentService {
     /**
      * Simulate payment processing (dummy implementation)
      */
-    private boolean simulatePaymentProcessing(PaymentRequest request) {
+    private boolean simulatePaymentProcessing() {
         // Simulate 97% success rate
         return Math.random() > 0.03;
     }

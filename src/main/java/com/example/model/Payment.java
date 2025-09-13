@@ -15,10 +15,11 @@ public class Payment {
     @OneToOne
     @JoinColumn(name = "booking_id")
     private Booking booking;
-
-    private String paymentMethod; // e.g., mobile money, credit card
+    @Enumerated(EnumType.STRING)
+    private PaymentMethod paymentMethod; // e.g., mobile money, credit card
     private String transactionId;
     private double amount;
-    private String status; // SUCCESS, FAILED
+    @Enumerated(EnumType.STRING)
+    private PaymentStatus status; // SUCCESS, FAILED
     private LocalDateTime paymentTime;
 }

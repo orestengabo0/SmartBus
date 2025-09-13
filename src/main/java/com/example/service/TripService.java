@@ -1,11 +1,13 @@
 package com.example.service;
 
+import com.example.dto.TripEnttiesDTO;
 import com.example.dto.requests.TripRequest;
 import com.example.dto.responses.TripResponse;
 import com.example.exception.ConflictException;
 import com.example.exception.InvalidInputException;
 import com.example.exception.ResourceNotFoundException;
 import com.example.exception.UnauthorizedException;
+import com.example.mappers.TripMapper;
 import com.example.model.*;
 import com.example.repository.BusParkRepository;
 import com.example.repository.BusRepository;
@@ -18,8 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,9 +32,7 @@ public class TripService {
     private final RouteRepository routeRepository;
     private final BusParkRepository busParkRepository;
     private final CurrentUserService currentUserService;
-
-    private static final DateTimeFormatter DATE_TIME_FORMATTER =
-            DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm");
+    private final TripMapper tripMapper;
 
     public TripResponse createTrip(TripRequest tripDTO) {
         // Validate user access
@@ -50,43 +48,30 @@ public class TripService {
             throw new UnauthorizedException("You can only schedule trips for your own buses");
         }
 
-        Route route = routeRepository.findById(tripDTO.getRouteId())
-                .orElseThrow(() -> new ResourceNotFoundException("Route not found"));
+        TripEnttiesDTO entities = loadTripEntities(tripDTO);
 
-        BusPark departurePark = busParkRepository.findById(tripDTO.getDepartureParkId())
-                .orElseThrow(() -> new ResourceNotFoundException("Departure park not found"));
 
-        BusPark arrivalPark = busParkRepository.findById(tripDTO.getArrivalParkId())
-                .orElseThrow(() -> new ResourceNotFoundException("Arrival park not found"));
-
-        // Validate time constraints
-        if (tripDTO.getDepartureTime().isAfter(tripDTO.getArrivalTime())) {
-            throw new InvalidInputException("Departure time must be before arrival time");
-        }
-
-        if (tripDTO.getDepartureTime().isBefore(LocalDateTime.now())) {
-            throw new InvalidInputException("Departure time must be in the future");
-        }
-
+        validateOperatorAccess(currentUser, entities.getBus());
+        validateTripTimes(tripDTO.getDepartureTime(), tripDTO.getArrivalTime());
         // Check for scheduling conflicts
         checkBusAvailability(bus, tripDTO.getDepartureTime(), tripDTO.getArrivalTime());
 
         // Create trip
         Trip trip = new Trip();
         trip.setBus(bus);
-        trip.setRoute(route);
-        trip.setDeparturePark(departurePark);
-        trip.setArrivalPark(arrivalPark);
+        trip.setRoute(entities.getRoute());
+        trip.setDeparturePark(entities.getDeparturePark());
+        trip.setArrivalPark(entities.getArrivalPark());
         trip.setDepartureTime(tripDTO.getDepartureTime());
         trip.setArrivalTime(tripDTO.getArrivalTime());
-        trip.setAmount(route.getPrice());
-        trip.setStatus("SCHEDULED");
+        trip.setAmount(entities.getRoute().getPrice());
+        trip.setStatus(TripStatus.SCHEDULED);
         trip.setAvailableSeats(bus.getTotalSeats()); // Initially all seats are available
         trip.setActive(true);
         trip.setCreatedAt(LocalDateTime.now());
 
         Trip savedTrip = tripRepository.save(trip);
-        return convertToDTO(savedTrip);
+        return tripMapper.toTripResponse(savedTrip);
     }
 
     private void checkBusAvailability(Bus bus, LocalDateTime start, LocalDateTime end) {
@@ -96,8 +81,8 @@ public class TripService {
         for (Trip existingTrip : busTrips) {
             // Only check active trips with status SCHEDULED or IN_PROGRESS
             if (!existingTrip.isActive() ||
-                    !(existingTrip.getStatus().equals("SCHEDULED") ||
-                            existingTrip.getStatus().equals("IN_PROGRESS"))) {
+                    !(existingTrip.getStatus().equals(TripStatus.SCHEDULED) ||
+                            existingTrip.getStatus().equals(TripStatus.IN_PROGRESS))) {
                 continue;
             }
 
@@ -117,16 +102,14 @@ public class TripService {
 
         List<Trip> trips = tripRepository.findTripsForSearch(origin, destination, startOfDay, endOfDay);
 
-        return trips.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        return tripMapper.toTripResponseList(trips);
     }
 
     public TripResponse getTripById(Long id) {
         Trip trip = tripRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip not found"));
 
-        return convertToDTO(trip);
+        return tripMapper.toTripResponse(trip);
     }
 
     public List<TripResponse> getUpcomingTrips() {
@@ -142,17 +125,15 @@ public class TripService {
                     .flatMap(bus -> tripRepository.findByBus(bus).stream())
                     .filter(trip -> trip.isActive() &&
                             trip.getDepartureTime().isAfter(LocalDateTime.now()) &&
-                            (trip.getStatus().equals("SCHEDULED") ||
-                                    trip.getStatus().equals("IN_PROGRESS")))
+                            (trip.getStatus().equals(TripStatus.SCHEDULED) ||
+                                    trip.getStatus().equals(TripStatus.IN_PROGRESS)))
                     .collect(Collectors.toList());
         } else {
             // Admins see all upcoming trips
             trips = tripRepository.findByActiveAndDepartureTimeAfter(true, LocalDateTime.now());
         }
 
-        return trips.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        return tripMapper.toTripResponseList(trips);
     }
 
     @Transactional
@@ -177,45 +158,28 @@ public class TripService {
         }
 
         // Load required entities
-        Bus bus = busRepository.findById(tripDTO.getBusId())
-                .orElseThrow(() -> new ResourceNotFoundException("Bus not found"));
-
-        Route route = routeRepository.findById(tripDTO.getRouteId())
-                .orElseThrow(() -> new ResourceNotFoundException("Route not found"));
-
-        BusPark departurePark = busParkRepository.findById(tripDTO.getDepartureParkId())
-                .orElseThrow(() -> new ResourceNotFoundException("Departure park not found"));
-
-        BusPark arrivalPark = busParkRepository.findById(tripDTO.getArrivalParkId())
-                .orElseThrow(() -> new ResourceNotFoundException("Arrival park not found"));
-
-        // Validate time constraints
-        if (tripDTO.getDepartureTime().isAfter(tripDTO.getArrivalTime())) {
-            throw new InvalidInputException("Departure time must be before arrival time");
-        }
-
-        if (tripDTO.getDepartureTime().isBefore(LocalDateTime.now())) {
-            throw new InvalidInputException("Departure time must be in the future");
-        }
+        TripEnttiesDTO entities = loadTripEntities(tripDTO);
+        validateOperatorAccess(currentUser, entities.getBus());
+        validateTripTimes(tripDTO.getDepartureTime(), tripDTO.getArrivalTime());
 
         // If changing bus or time, check for conflicts
-        if (!trip.getBus().getId().equals(bus.getId()) ||
+        if (!trip.getBus().getId().equals(entities.getBus().getId()) ||
                 !trip.getDepartureTime().equals(tripDTO.getDepartureTime()) ||
                 !trip.getArrivalTime().equals(tripDTO.getArrivalTime())) {
-            checkBusAvailability(bus, tripDTO.getDepartureTime(), tripDTO.getArrivalTime());
+            checkBusAvailability(entities.getBus(), tripDTO.getDepartureTime(), tripDTO.getArrivalTime());
         }
 
         // Update trip
-        trip.setBus(bus);
-        trip.setRoute(route);
-        trip.setDeparturePark(departurePark);
-        trip.setArrivalPark(arrivalPark);
+        trip.setBus(entities.getBus());
+        trip.setRoute(entities.getRoute());
+        trip.setDeparturePark(entities.getDeparturePark());
+        trip.setArrivalPark(entities.getArrivalPark());
         trip.setDepartureTime(tripDTO.getDepartureTime());
         trip.setArrivalTime(tripDTO.getArrivalTime());
-        trip.setAmount(route.getPrice());
+        trip.setAmount(entities.getRoute().getPrice());
 
         Trip updatedTrip = tripRepository.save(trip);
-        return convertToDTO(updatedTrip);
+        return tripMapper.toTripResponse(updatedTrip);
     }
 
     public TripResponse cancelTrip(Long id) {
@@ -236,12 +200,12 @@ public class TripService {
             throw new InvalidInputException("Cannot cancel a trip that has already departed");
         }
 
-        trip.setStatus("CANCELLED");
+        trip.setStatus(TripStatus.CANCELLED);
         Trip cancelledTrip = tripRepository.save(trip);
 
         // TODO: Notify booked passengers about cancellation
 
-        return convertToDTO(cancelledTrip);
+        return tripMapper.toTripResponse(cancelledTrip);
     }
 
     @Scheduled(fixedRate = 300000) // Every 5 minutes
@@ -249,95 +213,56 @@ public class TripService {
         LocalDateTime now = LocalDateTime.now();
 
         // Update SCHEDULED trips that have departed
-        List<Trip> departedTrips = tripRepository.findByStatusAndDepartureTimeBefore("SCHEDULED", now);
+        List<Trip> departedTrips = tripRepository.findByStatusAndDepartureTimeBefore(TripStatus.SCHEDULED, now);
         for (Trip trip : departedTrips) {
             if (trip.getArrivalTime().isAfter(now)) {
-                trip.setStatus("IN_PROGRESS");
+                trip.setStatus(TripStatus.IN_PROGRESS);
             } else {
-                trip.setStatus("COMPLETED");
+                trip.setStatus(TripStatus.COMPLETED);
             }
             tripRepository.save(trip);
         }
 
         // Update IN_PROGRESS trips that have arrived
-        List<Trip> inProgressTrips = tripRepository.findByStatusAndDepartureTimeBefore("IN_PROGRESS", now);
+        List<Trip> inProgressTrips = tripRepository.findByStatusAndDepartureTimeBefore(TripStatus.IN_PROGRESS, now);
         for (Trip trip : inProgressTrips) {
             if (trip.getArrivalTime().isBefore(now)) {
-                trip.setStatus("COMPLETED");
+                trip.setStatus(TripStatus.COMPLETED);
                 tripRepository.save(trip);
             }
         }
     }
 
-    private TripResponse convertToDTO(Trip trip) {
-        TripResponse dto = new TripResponse();
+    // Helper method to load trips by route, bus, and buspark
+    private TripEnttiesDTO loadTripEntities(TripRequest tripDTO) {
+        Bus bus = busRepository.findById(tripDTO.getBusId())
+                .orElseThrow(() -> new ResourceNotFoundException("Bus not found"));
 
-        // Basic trip info
-        dto.setId(trip.getId());
-        dto.setStatus(trip.getStatus());
-        dto.setActive(trip.isActive());
-        dto.setCreatedAt(trip.getCreatedAt());
-        dto.setAmount(trip.getAmount());
+        Route route = routeRepository.findById(tripDTO.getRouteId())
+                .orElseThrow(() -> new ResourceNotFoundException("Route not found"));
 
-        // Bus info
-        if (trip.getBus() != null) {
-            dto.setBusId(trip.getBus().getId());
-            dto.setBusPlateNumber(trip.getBus().getPlateNumber());
-            dto.setBusType(trip.getBus().getBusType());
-            dto.setTotalSeats(trip.getBus().getTotalSeats());
+        BusPark departurePark = busParkRepository.findById(tripDTO.getDepartureParkId())
+                .orElseThrow(() -> new ResourceNotFoundException("Departure park not found"));
+
+        BusPark arrivalPark = busParkRepository.findById(tripDTO.getArrivalParkId())
+                .orElseThrow(() -> new ResourceNotFoundException("Arrival park not found"));
+
+        return new TripEnttiesDTO(bus, route, departurePark, arrivalPark);
+    }
+
+    private void validateOperatorAccess(User user, Bus bus) {
+        if (user.getRole() == Role.OPERATOR &&
+                !bus.getOperator().getId().equals(user.getId())) {
+            throw new UnauthorizedException("You can only manage trips for your own buses");
         }
+    }
 
-        // Available seats
-        dto.setAvailableSeats(trip.getAvailableSeats());
-
-        // Route info
-        if (trip.getRoute() != null) {
-            dto.setRouteId(trip.getRoute().getId());
-            dto.setOrigin(trip.getRoute().getOrigin());
-            dto.setDestination(trip.getRoute().getDestination());
-            dto.setDistanceKm(trip.getRoute().getDistanceKm());
+    private void validateTripTimes(LocalDateTime departure, LocalDateTime arrival) {
+        if (departure.isAfter(arrival)) {
+            throw new InvalidInputException("Departure time must be before arrival time");
         }
-
-        // Park info
-        if (trip.getDeparturePark() != null) {
-            dto.setDepartureParkId(trip.getDeparturePark().getId());
-            dto.setDepartureParkName(trip.getDeparturePark().getName());
+        if (departure.isBefore(LocalDateTime.now())) {
+            throw new InvalidInputException("Departure time must be in the future");
         }
-
-        if (trip.getArrivalPark() != null) {
-            dto.setArrivalParkId(trip.getArrivalPark().getId());
-            dto.setArrivalParkName(trip.getArrivalPark().getName());
-        }
-
-        // Time info
-        dto.setDepartureTime(trip.getDepartureTime());
-        dto.setArrivalTime(trip.getArrivalTime());
-
-        // Formatted time
-        if (trip.getDepartureTime() != null) {
-            dto.setFormattedDepartureTime(trip.getDepartureTime().format(DATE_TIME_FORMATTER));
-        }
-
-        if (trip.getArrivalTime() != null) {
-            dto.setFormattedArrivalTime(trip.getArrivalTime().format(DATE_TIME_FORMATTER));
-        }
-
-        // Calculate duration
-        if (trip.getDepartureTime() != null && trip.getArrivalTime() != null) {
-            long minutes = ChronoUnit.MINUTES.between(trip.getDepartureTime(), trip.getArrivalTime());
-            dto.setDurationMinutes((int) minutes);
-
-            // Format duration
-            long hours = minutes / 60;
-            long remainingMinutes = minutes % 60;
-
-            if (hours > 0) {
-                dto.setFormattedDuration(hours + "h " + (remainingMinutes > 0 ? remainingMinutes + "m" : ""));
-            } else {
-                dto.setFormattedDuration(remainingMinutes + "m");
-            }
-        }
-
-        return dto;
     }
 }

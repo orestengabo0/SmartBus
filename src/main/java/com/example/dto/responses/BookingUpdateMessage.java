@@ -1,5 +1,6 @@
 package com.example.dto.responses;
 
+import com.example.model.BookingStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -7,6 +8,6 @@ import lombok.Data;
 @AllArgsConstructor
 public class BookingUpdateMessage {
     private Long bookingId;
-    private String status;
+    private BookingStatus status;
     private String message;
 }

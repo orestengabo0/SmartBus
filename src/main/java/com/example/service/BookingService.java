@@ -4,6 +4,7 @@ import com.example.dto.SeatAvailabilityDTO;
 import com.example.dto.requests.BookingRequest;
 import com.example.dto.responses.BookingResponse;
 import com.example.exception.*;
+import com.example.mappers.BookingMapper;
 import com.example.model.*;
 import com.example.repository.BookingRepository;
 import com.example.repository.TripRepository;
@@ -11,13 +12,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -25,13 +23,10 @@ import java.util.stream.Collectors;
 public class BookingService {
     private final BookingRepository bookingRepository;
     private final UserService userService;
-    private final TripService tripService;
     private final WebSocketService webSocketService;
     private final TripRepository tripRepository;
     private final CurrentUserService currentUserService;
-
-    private static final DateTimeFormatter FORMATTER =
-            DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm");
+    private final BookingMapper bookingMapper;
 
     /**
      * Get seat availability for a trip
@@ -41,7 +36,7 @@ public class BookingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Trip not found"));
 
         // Check if trip is bookable
-        if (!trip.isActive() || !"SCHEDULED".equals(trip.getStatus())) {
+        if (!trip.isActive() || trip.getStatus() != TripStatus.SCHEDULED) {
             throw new BadRequestException("Trip is not available for booking");
         }
 
@@ -56,7 +51,7 @@ public class BookingService {
         // Mark booked seats as unavailable
         List<Booking> bookings = bookingRepository.findByTrip(trip);
         for (Booking booking : bookings) {
-            if (!"CANCELLED".equals(booking.getStatus())) {
+            if (booking.getStatus() != BookingStatus.CANCELLED) {
                 for (Integer seatNumber : booking.getSeatNumbers()) {
                     seatStatus.put(seatNumber, false);
                 }
@@ -79,7 +74,7 @@ public class BookingService {
                     .orElseThrow(() -> new ResourceNotFoundException("Trip not found"));
 
             // Validate trip status
-            if (!trip.isActive() || !"SCHEDULED".equals(trip.getStatus())) {
+            if (!trip.isActive() || trip.getStatus() != TripStatus.SCHEDULED) {
                 throw new BadRequestException("Trip is not available for booking");
             }
 
@@ -111,7 +106,7 @@ public class BookingService {
             booking.setTrip(trip);
             booking.setSeatNumbers(seatNumbers);
             booking.setTotalAmount(totalAmount);
-            booking.setStatus("PENDING");
+            booking.setStatus(BookingStatus.PENDING);
             booking.setBookingTime(LocalDateTime.now());
             booking.setExpiryTime(LocalDateTime.now().plusMinutes(15));
 
@@ -129,7 +124,7 @@ public class BookingService {
             }
             webSocketService.sendSeatUpdate(trip.getId(), seatUpdates);
 
-            return mapToBookingResponse(savedBooking);
+            return bookingMapper.toBookingResponse(savedBooking);
         }catch (OptimisticLockingException ex){
             throw new ConflictException("Seat availability has been changed. Please try again");
         }
@@ -139,9 +134,7 @@ public class BookingService {
         var currentUser = currentUserService.getCurrentUser();
         List<Booking> bookings = bookingRepository.findByUser(currentUser);
 
-        return bookings.stream()
-                .map(this::mapToBookingResponse)
-                .collect(Collectors.toList());
+        return bookingMapper.toBookingResponseList(bookings);
     }
 
     public BookingResponse cancelBooking(Long bookingId) {
@@ -153,12 +146,12 @@ public class BookingService {
                     );
             //check ownership
             if (!booking.getUser().getId().equals(currentUser.getId()) &&
-                    !userService.isAdmin(currentUser)) {
+                    userService.isAdmin(currentUser)) {
                 throw new PermissionException("You don't have permission to cancel this booking");
             }
 
             // Check if booking can be cancelled
-            if ("CANCELLED".equals(booking.getStatus())) {
+            if (booking.getStatus() != BookingStatus.CANCELLED) {
                 throw new BadRequestException("Booking is already cancelled");
             }
 
@@ -166,26 +159,11 @@ public class BookingService {
                 throw new BadRequestException("Cannot cancel a booking for a trip that has already departed");
             }
 
-            // Update booking status
-            booking.setStatus("CANCELLED");
-            Booking cancelledBooking = bookingRepository.save(booking);
-
-            //Update trip's available seats
-            Trip trip = booking.getTrip();
-            trip.setAvailableSeats(trip.getAvailableSeats() + booking.getSeatNumbers().size());
-            tripRepository.save(trip);
-
-            // Notify clients about seat updates
-            Map<Integer, Boolean> seatUpdates = new HashMap<>();
-            for (Integer seatNumber : booking.getSeatNumbers()) {
-                seatUpdates.put(seatNumber, true);
-            }
-            webSocketService.sendSeatUpdate(trip.getId(), seatUpdates);
-
-            // Notify about booking cancellation
-            webSocketService.sendBookingUpdate(booking.getId(), "CANCELLED", "Booking has been cancelled");
-
-            return mapToBookingResponse(cancelledBooking);
+            return processBookings(
+                    booking,
+                    BookingStatus.CANCELLED,
+                    "Booking has been cancelled"
+            );
         } catch (OptimisticLockingException e) {
             throw new ConflictException("Failed to cancel booking");
         }
@@ -198,28 +176,15 @@ public class BookingService {
     @Transactional
     public void clearExpiredBookings() {
         LocalDateTime now = LocalDateTime.now();
-        List<Booking> expiredBookings = bookingRepository.findByStatusAndExpiryTimeBefore("PENDING", now);
+        List<Booking> expiredBookings = bookingRepository.findByStatusAndExpiryTimeBefore(BookingStatus.PENDING, now);
 
         for (Booking booking : expiredBookings) {
             try {
-                // Update booking status
-                booking.setStatus("EXPIRED");
-                bookingRepository.save(booking);
-
-                // Release seats
-                Trip trip = booking.getTrip();
-                trip.setAvailableSeats(trip.getAvailableSeats() + booking.getSeatNumbers().size());
-                tripRepository.save(trip);
-
-                // Notify clients
-                Map<Integer, Boolean> seatUpdates = new HashMap<>();
-                for (Integer seatNumber : booking.getSeatNumbers()) {
-                    seatUpdates.put(seatNumber, true);
-                }
-                webSocketService.sendSeatUpdate(trip.getId(), seatUpdates);
-
-                // Notify about booking expiration
-                webSocketService.sendBookingUpdate(booking.getId(), "EXPIRED", "Booking has expired");
+                processBookings(
+                        booking,
+                        BookingStatus.EXPIRED,
+                        "Booking has expired"
+                );
             } catch (Exception e) {
                 // Log the error but continue with other bookings
                 System.err.println("Error expiring booking " + booking.getId() + ": " + e.getMessage());
@@ -227,74 +192,27 @@ public class BookingService {
         }
     }
 
-    private BookingResponse mapToBookingResponse(Booking booking) {
-        BookingResponse dto = new BookingResponse();
-        dto.setId(booking.getId());
-        dto.setUserId(booking.getUser().getId());
-        dto.setUserFullName(booking.getUser().getFullName());
-        dto.setUserEmail(booking.getUser().getEmail());
-        dto.setUserPhone(booking.getUser().getPhone());
+    private BookingResponse processBookings(Booking booking,
+                                            BookingStatus newBookingStatus,
+                                            String notificationMessage) {
+        // Update booking status
+        booking.setStatus(newBookingStatus);
+        Booking updatedBooking = bookingRepository.save(booking);
 
-        if(booking.getBookingTime() != null){
-            dto.setFormattedBookingTime(booking.getBookingTime().format(FORMATTER));
+        // Release seats
+        Trip trip = booking.getTrip();
+        trip.setAvailableSeats(trip.getAvailableSeats() + booking.getSeatNumbers().size());
+        tripRepository.save(trip);
+
+        // Notify clients
+        Map<Integer, Boolean> seatUpdates = new HashMap<>();
+        for (Integer seatNumber : booking.getSeatNumbers()) {
+            seatUpdates.put(seatNumber, true);
         }
+        webSocketService.sendSeatUpdate(trip.getId(), seatUpdates);
 
-        if (booking.getExpiryTime() != null) {
-            dto.setFormattedExpiryTime(booking.getExpiryTime().format(FORMATTER));
-        }
-
-        // User info
-        if (booking.getUser() != null) {
-            dto.setUserId(booking.getUser().getId());
-            dto.setUserFullName(booking.getUser().getFullName());
-            dto.setUserEmail(booking.getUser().getEmail());
-            dto.setUserPhone(booking.getUser().getPhone());
-        }
-
-        // Trip info
-        if (booking.getTrip() != null) {
-            Trip trip = booking.getTrip();
-            dto.setTripId(trip.getId());
-
-            if (trip.getRoute() != null) {
-                dto.setOrigin(trip.getRoute().getOrigin());
-                dto.setDestination(trip.getRoute().getDestination());
-            }
-
-            if (trip.getBus() != null) {
-                dto.setBusPlateNumber(trip.getBus().getPlateNumber());
-            }
-
-            dto.setDepartureTime(trip.getDepartureTime());
-            dto.setArrivalTime(trip.getArrivalTime());
-
-            if (trip.getDepartureTime() != null) {
-                dto.setFormattedDepartureTime(trip.getDepartureTime().format(FORMATTER));
-            }
-
-            if (trip.getArrivalTime() != null) {
-                dto.setFormattedArrivalTime(trip.getArrivalTime().format(FORMATTER));
-            }
-        }
-
-        // Payment info
-        if (booking.getPayment() != null) {
-            Payment payment = booking.getPayment();
-            dto.setPaid("SUCCESS".equals(payment.getStatus()));
-            dto.setPaymentMethod(payment.getPaymentMethod());
-            dto.setPaymentTime(payment.getPaymentTime());
-        } else {
-            dto.setPaid(false);
-        }
-
-        // Ticket info
-        if (booking.getTicket() != null) {
-            Ticket ticket = booking.getTicket();
-            dto.setHasTicket(true);
-            dto.setTicketNumber(ticket.getTicketNumber());
-        } else {
-            dto.setHasTicket(false);
-        }
-        return dto;
+        // Notify about booking expiration
+        webSocketService.sendBookingUpdate(booking.getId(), newBookingStatus, notificationMessage);
+        return bookingMapper.toBookingResponse(updatedBooking);
     }
 }

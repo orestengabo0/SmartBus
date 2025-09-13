@@ -8,7 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.example.model.Bus;
 import com.example.model.BusPark;
+import org.springframework.stereotype.Repository;
 
+@Repository
 public interface BusRepository extends JpaRepository<Bus, Long> {
     List<Bus> findByOperator(User operator);
     Optional<Bus> findByPlateNumber(String plateNumber);

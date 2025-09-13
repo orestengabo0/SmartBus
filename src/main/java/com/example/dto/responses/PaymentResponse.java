@@ -1,5 +1,6 @@
 package com.example.dto.responses;
 
+import com.example.model.PaymentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,6 +12,6 @@ public class PaymentResponse {
     private Long bookingId;
     private String transactionId;
     private double amount;
-    private String status;
+    private PaymentStatus status;
     private String ticketNumber;
 }

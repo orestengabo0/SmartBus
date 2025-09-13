@@ -1,9 +1,6 @@
 package com.example.repository;
 
-import com.example.model.Trip;
-import com.example.model.Bus;
-import com.example.model.Route;
-import com.example.model.BusPark;
+import com.example.model.*;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -19,7 +16,7 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> findByDepartureParkAndDepartureTimeBetween(BusPark departurePark, LocalDateTime start, LocalDateTime end);
     List<Trip> findByArrivalParkAndDepartureTimeBetween(BusPark arrivalPark, LocalDateTime start, LocalDateTime end);
     List<Trip> findByRouteAndDepartureTimeBetween(Route route, LocalDateTime start, LocalDateTime end);
-    List<Trip> findByStatusAndDepartureTimeBefore(String status, LocalDateTime time);
+    List<Trip> findByStatusAndDepartureTimeBefore(TripStatus status, LocalDateTime time);
     List<Trip> findByActiveAndDepartureTimeAfter(boolean active, LocalDateTime time);
 
     @Query("SELECT t FROM Trip t WHERE t.route.origin = :origin AND t.route.destination = :destination AND t.departureTime BETWEEN :startTime AND :endTime AND t.active = true AND t.status = 'SCHEDULED'")

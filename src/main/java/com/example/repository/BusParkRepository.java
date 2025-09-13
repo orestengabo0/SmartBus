@@ -7,7 +7,9 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.example.model.BusPark;
+import org.springframework.stereotype.Repository;
 
+@Repository
 public interface BusParkRepository extends JpaRepository<BusPark, Long> {
     List<BusPark> findByLocation(String location);
     Optional<BusPark> findByName(String name);
