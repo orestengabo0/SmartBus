@@ -54,7 +54,7 @@ public class UserService {
     }
 
     private User createUserFromRequest(String fullName, String email,
-                                       String password, String phone, Role role) {
+            String password, String phone, Role role) {
         if (userRepository.findByEmail(email).isPresent()) {
             throw new EmailAlreadyRegisteredException("Email already registered");
         }
@@ -72,7 +72,7 @@ public class UserService {
 
     public ProfileResponse createOperator(CreateOperatorRequest request) {
         User currentUser = currentUserService.getCurrentUser();
-        if(currentUser.getRole() != Role.ADMIN && currentUser.getRole() != Role.SUPER_ADMIN) {
+        if (currentUser.getRole() != Role.ADMIN && currentUser.getRole() != Role.SUPER_ADMIN) {
             throw new UnauthorizedException("You do not have permission to add operator");
         }
         User user = createUserFromRequest(
@@ -80,14 +80,13 @@ public class UserService {
                 request.getEmail(),
                 request.getPassword(),
                 request.getPhone(),
-                Role.OPERATOR
-        );
+                Role.OPERATOR);
         return userMapper.toProfileResponse(user);
     }
 
     public ProfileResponse createAdmin(CreateAdminRequest request) {
         User currentUser = currentUserService.getCurrentUser();
-        if(currentUser.getRole() != Role.SUPER_ADMIN) {
+        if (currentUser.getRole() != Role.SUPER_ADMIN) {
             throw new UnauthorizedException("You do not have permission to add admin user");
         }
         User user = createUserFromRequest(
@@ -95,15 +94,15 @@ public class UserService {
                 request.getEmail(),
                 request.getPassword(),
                 request.getPhone(),
-                Role.ADMIN
-        );
+                Role.ADMIN);
         return userMapper.toProfileResponse(user);
     }
-    public boolean isAdmin(User user){
-        return user.getRole() != Role.ADMIN && user.getRole() != Role.SUPER_ADMIN;
+
+    public boolean isAdmin(User user) {
+        return user.getRole() == Role.ADMIN || user.getRole() == Role.SUPER_ADMIN;
     }
 
-    public boolean isAdminOrOperator(User user){
+    public boolean isAdminOrOperator(User user) {
         return user.getRole() == Role.ADMIN ||
                 user.getRole() == Role.SUPER_ADMIN ||
                 user.getRole() == Role.OPERATOR;

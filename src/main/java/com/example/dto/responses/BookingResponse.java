@@ -37,7 +37,7 @@ public class BookingResponse {
     private String formattedExpiryTime;
 
     // Payment info
-    private boolean isPaid;
+    private boolean paid;
     private PaymentMethod paymentMethod;
     private LocalDateTime paymentTime;
 

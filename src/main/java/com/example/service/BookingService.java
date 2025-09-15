@@ -59,10 +59,10 @@ public class BookingService {
         }
 
         return new SeatAvailabilityDTO(
-              tripId,
-              trip.getBus().getTotalSeats(),
-              trip.getAvailableSeats(),
-              seatStatus
+                tripId,
+                trip.getBus().getTotalSeats(),
+                trip.getAvailableSeats(),
+                seatStatus
         );
     }
 

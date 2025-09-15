@@ -5,6 +5,7 @@ import com.example.dto.responses.BusParkResponse;
 import com.example.exception.ResourceAlreadyExistsException;
 import com.example.exception.ResourceNotFoundException;
 import com.example.exception.UnauthorizedException;
+import com.example.mappers.BusParkMapper;
 import com.example.model.BusPark;
 import com.example.model.Role;
 import com.example.model.User;
@@ -15,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 public class BusParkService {
     private final BusParkRepository busParkRepository;
     private final CurrentUserService currentUserService;
+    private final BusParkMapper busParkMapper;
 
     public BusParkResponse createBusPark(BusParkRequest busParkDTO) {
         User currentUser = currentUserService.getCurrentUser();
@@ -43,27 +44,23 @@ public class BusParkService {
         busPark.setCreatedAt(LocalDateTime.now());
 
         busParkRepository.save(busPark);
-        return convertToDTO(busPark);
+        return busParkMapper.toBusParkResponse(busPark);
     }
 
     public List<BusParkResponse> getAllBusParks() {
         List<BusPark> busParks = busParkRepository.findByActive(true);
-        return busParks.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        return busParkMapper.toBusParkResponseList(busParks);
     }
 
     public BusParkResponse getBusParkById(Long id) {
         BusPark busPark = busParkRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bus park not found with id: " + id));
-        return convertToDTO(busPark);
+        return busParkMapper.toBusParkResponse(busPark);
     }
 
     public List<BusParkResponse> getBusParksByLocation(String location) {
         List<BusPark> busParks = busParkRepository.findByLocation(location);
-        return busParks.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        return busParkMapper.toBusParkResponseList(busParks);
     }
 
     public BusParkResponse updateBusPark(Long id, BusParkRequest busParkDTO) {
@@ -83,7 +80,7 @@ public class BusParkService {
         busPark.setLongitude(busParkDTO.getLongitude());
 
         busParkRepository.save(busPark);
-        return convertToDTO(busPark);
+        return busParkMapper.toBusParkResponse(busPark);
     }
 
     public void deleteBusPark(Long id) {
@@ -96,27 +93,5 @@ public class BusParkService {
         BusPark busPark = busParkRepository.getBusParkById(id);
         busPark.setActive(false); // Soft delete
         busParkRepository.save(busPark);
-    }
-
-    private BusParkResponse convertToDTO(BusPark busPark) {
-        BusParkResponse dto = new BusParkResponse();
-
-        dto.setId(busPark.getId());
-        dto.setName(busPark.getName());
-        dto.setLocation(busPark.getLocation());
-        dto.setAddress(busPark.getAddress());
-        dto.setContactNumber(busPark.getContactNumber());
-
-        // Set counts instead of collections
-        dto.setBusCount(busPark.getBuses() != null ? busPark.getBuses().size() : 0);
-        dto.setDepartureTripCount(busPark.getDepartureTrips() != null ? busPark.getDepartureTrips().size() : 0);
-        dto.setArrivalTripCount(busPark.getArrivalTrips() != null ? busPark.getArrivalTrips().size() : 0);
-
-        dto.setLatitude(busPark.getLatitude());
-        dto.setLongitude(busPark.getLongitude());
-        dto.setActive(busPark.isActive());
-        dto.setCreatedAt(busPark.getCreatedAt());
-
-        return dto;
     }
 }

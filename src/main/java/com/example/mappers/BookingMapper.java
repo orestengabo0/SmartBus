@@ -9,32 +9,32 @@ import java.util.List;
 
 @Mapper(componentModel = "spring", uses = {DateMapper.class})
 public interface BookingMapper {
+    // User info
     @Mapping(target = "userId", source = "user.id")
     @Mapping(target = "userFullName", source = "user.fullName")
     @Mapping(target = "userEmail", source = "user.email")
     @Mapping(target = "userPhone", source = "user.phone")
 
+    // Trip info
     @Mapping(target = "tripId", source = "trip.id")
     @Mapping(target = "origin", source = "trip.route.origin")
     @Mapping(target = "destination", source = "trip.route.destination")
     @Mapping(target = "busPlateNumber", source = "trip.bus.plateNumber")
     @Mapping(target = "departureTime", source = "trip.departureTime")
     @Mapping(target = "arrivalTime", source = "trip.arrivalTime")
-    @Mapping(target = "formattedDepartureTime", expression = "java(dateMapper.formatDate(booking.getTrip() != null ? booking.getTrip().getDepartureTime() : null))")
-    @Mapping(target = "formattedArrivalTime", expression = "java(dateMapper.formatDate(booking.getTrip() != null ? booking.getTrip().getArrivalTime() : null))")
+    @Mapping(target = "formattedDepartureTime", source = "trip.departureTime", qualifiedByName = "formatDate")
+    @Mapping(target = "formattedArrivalTime", source = "trip.arrivalTime", qualifiedByName = "formatDate")
 
     // Booking info
-    @Mapping(target = "seatNumbers", source = "seatNumbers")
     @Mapping(target = "seatCount", expression = "java(booking.getSeatNumbers() != null ? booking.getSeatNumbers().size() : 0)")
-    @Mapping(target = "totalAmount", source = "totalAmount")
-    @Mapping(target = "status", source = "status")
-    @Mapping(target = "bookingTime", source = "bookingTime")
-    @Mapping(target = "formattedBookingTime", expression = "java(dateMapper.formatDate(booking.getBookingTime()))")
-    @Mapping(target = "expiryTime", source = "expiryTime")
-    @Mapping(target = "formattedExpiryTime", expression = "java(dateMapper.formatDate(booking.getExpiryTime()))")
+    @Mapping(target = "formattedBookingTime", source = "bookingTime", qualifiedByName = "formatDate")
+    @Mapping(target = "formattedExpiryTime", source = "expiryTime", qualifiedByName = "formatDate")
 
     // Payment info
-    @Mapping(target = "isPaid", expression = "java(booking.getPayment() != null && booking.getPayment().getStatus() == PaymentStatus.COMPLETED)")
+    @Mapping(
+            target = "paid",
+            expression = "java(booking.getPayment() != null && booking.getPayment().getStatus() == com.example.model.PaymentStatus.COMPLETED)"
+    )
     @Mapping(target = "paymentMethod", source = "payment.paymentMethod")
     @Mapping(target = "paymentTime", source = "payment.paymentTime")
 

@@ -5,6 +5,7 @@ import com.example.exception.BadRequestException;
 import com.example.exception.PermissionException;
 import com.example.exception.QRCodeException;
 import com.example.exception.ResourceNotFoundException;
+import com.example.mappers.TicketMapper;
 import com.example.model.*;
 import com.example.repository.TicketRepository;
 import com.google.zxing.BarcodeFormat;
@@ -37,11 +38,12 @@ public class TicketService {
     private final TicketRepository ticketRepository;
     private final CurrentUserService currentUserService;
     private final UserService userService;
+    private final TicketMapper ticketMapper;
 
     @Transactional
     public Ticket generateTicket(Booking booking) {
         // Validate booking status
-        if (!"CONFIRMED".equals(booking.getStatus())) {
+        if (booking.getStatus() != BookingStatus.CONFIRMED) {
             throw new BadRequestException("Cannot generate ticket for unconfirmed booking");
         }
 
@@ -79,7 +81,7 @@ public class TicketService {
             throw new PermissionException("You don't have access to this ticket");
         }
 
-        return mapToTicketResponse(ticket);
+        return ticketMapper.toTicketResponse(ticket);
     }
 
     private String generateTicketNumber(){
@@ -137,7 +139,7 @@ public class TicketService {
         ticket.setValidationTime(LocalDateTime.now());
 
         Ticket validatedTicket = ticketRepository.save(ticket);
-        return mapToTicketResponse(validatedTicket);
+        return ticketMapper.toTicketResponse(validatedTicket);
     }
 
     private Ticket findMyTicket(Long bookingId){
@@ -330,77 +332,5 @@ public class TicketService {
         }catch(Exception ex){
             throw new QRCodeException("Cannot generate QR code");
         }
-    }
-
-    /**
-     * Map Ticket entity to TicketResponseDTO
-     */
-    private TicketResponse mapToTicketResponse(Ticket ticket) {
-        DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm");
-        TicketResponse dto = new TicketResponse();
-
-        // Basic ticket info
-        dto.setTicketId(ticket.getId());
-        dto.setTicketNumber(ticket.getTicketNumber());
-        dto.setIssueTime(ticket.getIssueTime());
-        dto.setValidated(ticket.isValidated());
-        dto.setValidationTime(ticket.getValidationTime());
-
-        // Formatted dates
-        if (ticket.getIssueTime() != null) {
-            dto.setFormattedIssueTime(ticket.getIssueTime().format(FORMATTER));
-        }
-
-        if (ticket.getValidationTime() != null) {
-            dto.setFormattedValidationTime(ticket.getValidationTime().format(FORMATTER));
-        }
-
-        // Get booking info
-        Booking booking = ticket.getBooking();
-        if (booking != null) {
-            dto.setBookingId(booking.getId());
-
-            // Passenger info from user
-            User user = booking.getUser();
-            if (user != null) {
-                dto.setPassengerName(user.getFullName());
-                dto.setPassengerEmail(user.getEmail());
-                dto.setPassengerPhone(user.getPhone());
-            }
-
-            // Seat info
-            dto.setSeatNumbers(booking.getSeatNumbers());
-
-            // Trip info
-            Trip trip = booking.getTrip();
-            if (trip != null) {
-                dto.setTripId(trip.getId());
-
-                // Route info
-                if (trip.getRoute() != null) {
-                    dto.setOrigin(trip.getRoute().getOrigin());
-                    dto.setDestination(trip.getRoute().getDestination());
-                }
-
-                // Bus info
-                if (trip.getBus() != null) {
-                    dto.setBusPlateNumber(trip.getBus().getPlateNumber());
-                }
-
-                // Trip times
-                dto.setDepartureTime(trip.getDepartureTime());
-                dto.setArrivalTime(trip.getArrivalTime());
-
-                if (trip.getDepartureTime() != null) {
-                    dto.setFormattedDepartureTime(trip.getDepartureTime().format(FORMATTER));
-                }
-
-                if (trip.getArrivalTime() != null) {
-                    dto.setFormattedArrivalTime(trip.getArrivalTime().format(FORMATTER));
-                }
-            }
-        }
-
-        return dto;
     }
 }

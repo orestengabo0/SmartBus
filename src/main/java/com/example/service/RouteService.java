@@ -7,6 +7,7 @@ import com.example.exception.BadRequestException;
 import com.example.exception.ResourceAlreadyExistsException;
 import com.example.exception.ResourceNotFoundException;
 import com.example.exception.UnauthorizedException;
+import com.example.mappers.RouteMapper;
 import com.example.model.Role;
 import com.example.model.Route;
 import com.example.model.User;
@@ -26,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 public class RouteService {
     private final RouteRepository routeRepository;
     private final CurrentUserService currentUserService;
+    private final RouteMapper routeMapper;
     @Value("${google.maps.api.key}")
     private String apiKey;
     @Value("${route.pricing.base-rate-per-km:0.50}")
@@ -114,7 +115,7 @@ public class RouteService {
         route.setActive(true);
         route.setCreatedAt(LocalDateTime.now());
         Route savedRoute = routeRepository.save(route);
-        return convertToDTO(savedRoute);
+        return routeMapper.toRouteResponse(savedRoute);
     }
 
     private double calculatePrice(double distanceKm) {
@@ -160,36 +161,28 @@ public class RouteService {
 
     public List<RouteResponse> getAllRoutes() {
         List<Route> routes = routeRepository.findByActive(true);
-        return routes.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        return routeMapper.toRouteResponseList(routes);
     }
 
     public RouteResponse getRouteById(Long id) {
         Route route = routeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Route not found with id: " + id));
-        return convertToDTO(route);
+        return routeMapper.toRouteResponse(route);
     }
 
     public List<RouteResponse> getRoutesByOriginAndDestination(String origin, String destination) {
         List<Route> routes = routeRepository.findByOriginAndDestination(origin, destination);
-        return routes.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        return routeMapper.toRouteResponseList(routes);
     }
 
     public List<RouteResponse> getRoutesByOrigin(String origin) {
         List<Route> routes = routeRepository.findByOrigin(origin);
-        return routes.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        return routeMapper.toRouteResponseList(routes);
     }
 
     public List<RouteResponse> getRoutesByDestination(String destination) {
         List<Route> routes = routeRepository.findByDestination(destination);
-        return routes.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        return routeMapper.toRouteResponseList(routes);
     }
 
     public RouteResponse updateRoute(Long routeId, RouteRequest routeRequest) {
@@ -234,7 +227,7 @@ public class RouteService {
             verifyRouteDistancePriceAndDuration(routeRequest, route);
         }
         Route updatedRoute = routeRepository.save(route);
-        return convertToDTO(updatedRoute);
+        return routeMapper.toRouteResponse(updatedRoute);
     }
 
     private void verifyRouteDistancePriceAndDuration(RouteRequest routeRequest, Route route) {
@@ -259,33 +252,5 @@ public class RouteService {
         Route route = routeRepository.getRouteById(id);
         route.setActive(false); // Soft delete
         routeRepository.save(route);
-    }
-
-    public RouteResponse convertToDTO(Route route) {
-        RouteResponse dto = new RouteResponse();
-
-        dto.setId(route.getId());
-        dto.setOrigin(route.getOrigin());
-        dto.setDestination(route.getDestination());
-        dto.setDistanceKm(route.getDistanceKm());
-        dto.setPrice(route.getPrice());
-
-        // Set count instead of collection
-        dto.setTripCount(route.getTrips() != null ? route.getTrips().size() : 0);
-
-        dto.setEstimatedDurationMinutes(route.getEstimatedDurationMinutes());
-        dto.setActive(route.isActive());
-        dto.setCreatedAt(route.getCreatedAt());
-
-        // Format duration nicely
-        int hours = route.getEstimatedDurationMinutes() / 60;
-        int minutes = route.getEstimatedDurationMinutes() % 60;
-        if (hours > 0) {
-            dto.setFormattedDuration(hours + "h " + (minutes > 0 ? minutes + "m" : ""));
-        } else {
-            dto.setFormattedDuration(minutes + "m");
-        }
-
-        return dto;
     }
 }
