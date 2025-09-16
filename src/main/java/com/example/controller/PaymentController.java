@@ -26,6 +26,7 @@ public class PaymentController {
     @Operation(summary = "Process payment for a booking")
     public ResponseEntity<PaymentResponse> processPayment(
             @Valid @RequestBody PaymentRequest request) {
+        System.out.println("Payment request: " + request);
         return ResponseEntity.ok(paymentService.processPayment(request));
     }
 }
