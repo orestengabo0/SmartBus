@@ -4,6 +4,7 @@ import com.example.dto.RouteAnalyticsDTO;
 import com.example.exception.UnauthorizedException;
 import com.example.model.*;
 import com.example.repository.RouteRepository;
+import com.example.repository.TripRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -11,9 +12,10 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class RouteAnalyticsService {
+public class AnalyticsService {
     private final RouteRepository routeRepository;
     private final CurrentUserService currentUserService;
+    private final TripRepository tripRepository;
 
     public List<RouteAnalyticsDTO> getRouteAnalytics() {
         User user = currentUserService.getCurrentUser();
@@ -31,12 +33,12 @@ public class RouteAnalyticsService {
 
                     var totalBookings = bookings.size();
                     long cancelled = bookings.stream()
-                            .filter(b -> "CANCELED".equals(b.getStatus())).count();
-                    long confirmed = bookings.stream().filter(t -> "CONFIRMED".equals(t.getStatus())).count();
-                    long pending = bookings.stream().filter(t -> "PENDING".equals(t.getStatus())).count();
+                            .filter(b -> b.getStatus() == BookingStatus.CANCELLED).count();
+                    long confirmed = bookings.stream().filter(t -> t.getStatus() == BookingStatus.CONFIRMED).count();
+                    long pending = bookings.stream().filter(t -> t.getStatus() == BookingStatus.PENDING).count();
 
                     double totalRevenue = bookings.stream()
-                            .filter(b -> "CONFIRMED".equals(b.getStatus()))
+                            .filter(b -> b.getStatus() == BookingStatus.CONFIRMED)
                             .mapToDouble(Booking::getTotalAmount)
                             .sum();
                     double avgRevenuePerTrip = trips.isEmpty() ? 0 : totalRevenue / trips.size();
@@ -46,7 +48,7 @@ public class RouteAnalyticsService {
                             .mapToDouble( trip -> {
                                 int totalSeats = trip.getBus().getTotalSeats();
                                 int bookedSeats = (int)trip.getBookings().stream()
-                                        .filter( b -> "CONFIRMED".equals(b.getStatus())).count();
+                                        .filter( b -> b.getStatus() == BookingStatus.CONFIRMED).count();
 
                                 return totalSeats > 0 ? (double) bookedSeats / totalSeats : 0;
                                     }
